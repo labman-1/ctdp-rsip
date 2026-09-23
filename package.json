@@ -1,0 +1,22 @@
+{
+  "name": "ctdp-tool",
+  "description": "CTDP/RSIP 自控协议工具 — 链式时延协议的单文件 PWA 实现",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "license": "GPL-3.0-only",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "vite": "^5.4.8",
+    "vite-plugin-singlefile": "^2.0.2",
+    "vitest": "^2.1.2"
+  }
+}

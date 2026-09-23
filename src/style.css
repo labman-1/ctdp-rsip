@@ -1,0 +1,158 @@
+/* 极简黑白 — 反成瘾设计：无动画（除 150ms 过渡）、无音效、无庆祝效果。
+   设计验收标准：打开 → 操作 → 30 秒内关闭。 */
+
+:root {
+  --bg: #101010;
+  --fg: #e8e8e8;
+  --dim: #8f8f8f;
+  --line: #2a2a2a;
+  --danger: #c07070;
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  max-width: 460px;
+  margin: 0 auto;
+  padding: max(16px, env(safe-area-inset-top)) 20px 40px;
+}
+
+/* ── 顶栏 ── */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  color: var(--dim);
+  font-size: 13px;
+  padding: 6px 2px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* ── 链长（页面唯一主角）── */
+.hero {
+  text-align: center;
+  padding: 34px 0 10px;
+}
+.hero .num {
+  font-size: clamp(88px, 28vw, 176px);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.hero .status {
+  color: var(--dim);
+  font-size: 14px;
+  margin-top: 10px;
+}
+.hero .status.active { color: var(--fg); }
+
+/* ── 操作键 ── */
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  margin: 22px 0 8px;
+}
+button {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--fg);
+  border-radius: var(--radius);
+  font-size: 16px;
+  min-height: 52px;
+  transition: background-color 150ms, opacity 150ms;
+  cursor: pointer;
+  font-family: inherit;
+}
+button:enabled:active { background: #1e1e1e; }
+button:disabled { opacity: 0.25; cursor: default; }
+button.danger { color: var(--danger); border-color: #3a2626; }
+
+/* ── 次要区块 ── */
+.section { margin-top: 26px; }
+.section > summary {
+  color: var(--dim);
+  font-size: 14px;
+  padding: 10px 2px;
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+}
+.section > summary::-webkit-details-marker { display: none; }
+
+.itemlist {
+  font-size: 13px;
+  color: var(--dim);
+  line-height: 1.6;
+  padding: 4px 2px 10px;
+}
+.itemlist .row { display: flex; gap: 10px; padding: 3px 0; }
+.itemlist .row .t { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+
+/* ── 评分行 / 工具行 ── */
+.toolrow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--line);
+  padding: 12px 2px;
+  font-size: 14px;
+  color: var(--dim);
+}
+.toolrow button { min-height: 44px; font-size: 14px; padding: 0 16px; }
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  margin-top: 26px;
+}
+.footer button { min-height: 44px; font-size: 13px; padding: 0 14px; color: var(--dim); }
+.weekavg { font-size: 13px; color: var(--dim); }
+
+/* ── 弹窗 ── */
+dialog {
+  background: #161616;
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+  width: min(92vw, 380px);
+}
+dialog::backdrop { background: rgba(0, 0, 0, 0.65); }
+dialog h3 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+dialog .hint { font-size: 12px; color: var(--dim); margin-bottom: 14px; line-height: 1.5; }
+dialog textarea {
+  width: 100%;
+  background: #101010;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 14px;
+  padding: 10px;
+  min-height: 64px;
+  resize: vertical;
+}
+dialog .dlg-actions { display: grid; gap: 10px; margin-top: 14px; }
+dialog .dlg-actions button { min-height: 48px; }
+dialog .cancel { border: none; color: var(--dim); min-height: 36px; font-size: 13px; }
+
+/* 评分弹窗：五个大数字 */
+.score-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 12px 0; }
+.score-grid button { min-height: 56px; font-size: 22px; font-weight: 600; }
+.score-grid button small { display: block; font-size: 10px; font-weight: 400; color: var(--dim); margin-top: 3px; }
+.score-grid button.sel { background: #242424; border-color: var(--fg); }
