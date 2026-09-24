@@ -7,7 +7,7 @@
 知乎用户 edmond《如何提高自制力？》回答（CTDP / RSIP 方法论，原作者以类 MIT 许可完全开源）：
 <https://www.zhihu.com/question/19888447/answer/1930799480401293785>
 
-本工具是该理论的最小忠实实现，同生态参考实现：[momentum](https://github.com/KenXiao1/momentum)、[Hamon](https://github.com/Chemit797/Hamon)、[ctdp-pomodoro](https://github.com/Ygria/ctdp-pomodoro)。
+本工具是该理论的最小忠实实现。**全部代码为原创实现**（从协议语义直接推导，未使用 momentum / Hamon 源码；依赖仅 vite/typescript/vitest 等构建工具链，运行时零依赖）。同生态参考实现：[momentum](https://github.com/KenXiao1/momentum)、[Hamon](https://github.com/Chemit797/Hamon)、[ctdp-pomodoro](https://github.com/Ygria/ctdp-pomodoro)。
 
 ## 协议 → 功能映射
 
