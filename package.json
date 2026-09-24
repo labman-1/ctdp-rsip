@@ -1,6 +1,6 @@
 {
-  "name": "ctdp-tool",
-  "description": "CTDP/RSIP 自控协议工具 — 链式时延协议的单文件 PWA 实现",
+  "name": "ctdp-rsip",
+  "description": "CTDP 链式时延协议 + RSIP 递归稳态迭代协议的自控实践工具（单文件 PWA）",
   "private": true,
   "version": "0.1.0",
   "type": "module",
