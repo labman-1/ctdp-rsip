@@ -12,7 +12,7 @@ function el(html: string): HTMLDialogElement {
 
 /** 失败裁决弹窗 — 协议核心：疑似违规只允许二选一，不允许"这次算了"。
  *  resolve：fail 事件 / verdict 事件 / null（用户关闭，稍后再裁决） */
-export function openVerdictDialog(): Promise<ChainEvent | null> {
+export function openVerdictDialog(chainId: string): Promise<ChainEvent | null> {
   return new Promise((resolve) => {
     const dlg = el(`
       <dialog>
@@ -31,7 +31,7 @@ export function openVerdictDialog(): Promise<ChainEvent | null> {
 
     const close = (result: ChainEvent | null) => { dlg.close(); dlg.remove(); resolve(result); };
     const text = () => (dlg.querySelector('textarea') as HTMLTextAreaElement).value.trim();
-    const base = () => ({ ts: Date.now(), chain: 'C1' });
+    const base = () => ({ ts: Date.now(), chain: chainId });
 
     dlg.querySelector('[data-act="fail"]')?.addEventListener('click', () =>
       close({ ...base(), type: 'fail', note: text() || undefined }));

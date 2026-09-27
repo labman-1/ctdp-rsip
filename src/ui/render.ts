@@ -6,6 +6,7 @@ import { computeChain, verdictList } from '../logic/chain';
 import { todayScore, averageLast7 } from '../logic/score';
 
 export interface Handlers {
+  onSwitchChain(): void;
   onTrigger(): void;
   onDone(): void;
   onFail(): void;
@@ -29,9 +30,10 @@ const EVENT_LABEL: Record<string, string> = {
   score: '评分', booking: '预约',
 };
 
-export function render(root: HTMLElement, s: AppState, h: Handlers): void {
-  const chain = computeChain(s, 'C1');
+export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: string): void {
+  const chain = computeChain(s, currentId);
   if (!chain) { root.innerHTML = '<p>状态损坏</p>'; return; }
+  const multi = Object.keys(s.chains).length > 1;
 
   const active = chain.activeSince !== null;
   const mins = active ? Math.max(0, Math.round((Date.now() - (chain.activeSince as number)) / 60000)) : 0;
@@ -46,7 +48,7 @@ export function render(root: HTMLElement, s: AppState, h: Handlers): void {
 
   root.innerHTML = `
     <div class="topbar">
-      <span>${esc(chain.name)}</span>
+      <button id="btn-chain" class="chain-switch" title="点击切换链">${multi ? '‹ ' : ''}${esc(chain.name)}${multi ? ' ›' : ''}</button>
       <span>总节点 ${chain.totalDone}</span>
     </div>
 
@@ -100,6 +102,7 @@ export function render(root: HTMLElement, s: AppState, h: Handlers): void {
     </div>
   `;
 
+  root.querySelector('#btn-chain')?.addEventListener('click', h.onSwitchChain);
   root.querySelector('#btn-trigger')?.addEventListener('click', h.onTrigger);
   root.querySelector('#btn-done')?.addEventListener('click', h.onDone);
   root.querySelector('#btn-fail')?.addEventListener('click', h.onFail);

@@ -35,6 +35,17 @@ html, body {
   padding: 6px 2px 14px;
   border-bottom: 1px solid var(--line);
 }
+.chain-switch {
+  border: none;
+  background: transparent;
+  color: var(--dim);
+  font-size: 13px;
+  min-height: 32px;
+  padding: 0 4px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.chain-switch:active { background: transparent; }
 
 /* ── 链长（页面唯一主角）── */
 .hero {

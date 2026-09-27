@@ -14,12 +14,14 @@ function defaultState(): AppState {
     version: 1,
     chains: {
       C1: { name: '算法题（本业）', createdAt: Date.now() },
+      C2: { name: '锻炼：校园跑/健身房 40min-1h', createdAt: Date.now() },
     },
     events: [],
   };
 }
 
-/** 防御式加载：损坏/缺失一律回退到默认档（与 Hamon 的 `|| 'null'` 兜底同理） */
+/** 防御式加载：损坏/缺失一律回退到默认档（与 Hamon 的 `|| 'null'` 兜底同理）。
+ *  v0.2 部署补丁：早期存档（只有 C1）注入 C2 锻炼链定义——只补元信息，不动事件流。 */
 export function load(): AppState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -27,6 +29,12 @@ export function load(): AppState {
     const parsed = JSON.parse(raw) as AppState;
     if (parsed.version !== 1 || !Array.isArray(parsed.events) || typeof parsed.chains !== 'object') {
       return defaultState();
+    }
+    if (parsed.chains.C2 === undefined) {
+      return {
+        ...parsed,
+        chains: { ...parsed.chains, C2: { name: '锻炼：校园跑/健身房 40min-1h', createdAt: Date.now() } },
+      };
     }
     return parsed;
   } catch {
