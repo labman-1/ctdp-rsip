@@ -2,12 +2,14 @@
 // 事件量级（每天几条）下 innerHTML 重建完全够用。
 
 import type { AppState } from '../types';
-import { computeChain, verdictList } from '../logic/chain';
+import { computeChain, verdictList, bookingState } from '../logic/chain';
 import { todayScore, averageLast7 } from '../logic/score';
 
 export interface Handlers {
   onSwitchChain(): void;
   onTrigger(): void;
+  onBooking(): void;
+  onBookingVerdict(): void;
   onDone(): void;
   onFail(): void;
   onScore(): void;
@@ -34,12 +36,34 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
   const chain = computeChain(s, currentId);
   if (!chain) { root.innerHTML = '<p>状态损坏</p>'; return; }
   const multi = Object.keys(s.chains).length > 1;
-
+  const booking = bookingState(s, currentId);
+  const bookingChain = computeChain(s, currentId + '预约');
   const active = chain.activeSince !== null;
   const mins = active ? Math.max(0, Math.round((Date.now() - (chain.activeSince as number)) / 60000)) : 0;
+
   const statusHtml = active
     ? `<div class="status active">专注中 · 已 ${mins} 分 — 手机离手</div>`
-    : `<div class="status">未触发${chain.lastFailAt ? ` · 链于 ${fmtTime(chain.lastFailAt)} 清零重来` : ''}</div>`;
+    : booking.phase === 'booked'
+      ? `<div class="status active">预约中 · 剩余 <span id="countdown">--:--</span></div>`
+      : booking.phase === 'due'
+        ? `<div class="status active">预约到期 · 宽限中 — 立即触发</div>`
+        : booking.phase === 'overdue'
+          ? `<div class="status" style="color:var(--danger)">预约失约 · 待裁决</div>`
+          : `<div class="status">未触发${bookingChain && bookingChain.length > 0 ? ` · 预约链 #${bookingChain.length}` : ''}${chain.lastFailAt ? ` · 链于 ${fmtTime(chain.lastFailAt)} 清零重来` : ''}</div>`;
+
+  // 按钮组：active 优先；其次预约状态机；最后 idle
+  const actionsHtml = active
+    ? `<button id="btn-trigger" disabled>触发</button>
+       <button id="btn-done">完成</button>
+       <button id="btn-fail" class="danger">失败</button>`
+    : booking.phase === 'overdue'
+      ? `<button id="btn-booking-verdict" class="danger" style="grid-column: 1 / -1">失约裁决（下必为例）</button>`
+      : booking.phase === 'booked' || booking.phase === 'due'
+        ? `<button id="btn-trigger" class="primary" style="grid-column: span 2; font-weight:600">立即触发</button>
+           <button id="btn-booking-verdict" class="danger">失约裁决</button>`
+        : `<button id="btn-trigger">触发</button>
+           <button id="btn-booking" ${booking.phase === 'none' ? '' : 'disabled'}>预约</button>
+           <button id="btn-fail" class="danger" disabled>失败</button>`;
 
   const today = todayScore(s);
   const avg = averageLast7(s);
@@ -57,11 +81,7 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
       ${statusHtml}
     </div>
 
-    <div class="actions">
-      <button id="btn-trigger" ${active ? 'disabled' : ''}>触发</button>
-      <button id="btn-done" ${active ? '' : 'disabled'}>完成</button>
-      <button id="btn-fail" class="danger" ${active ? '' : 'disabled'}>失败</button>
-    </div>
+    <div class="actions">${actionsHtml}</div>
 
     <div class="toolrow">
       <span>${
@@ -104,6 +124,8 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
 
   root.querySelector('#btn-chain')?.addEventListener('click', h.onSwitchChain);
   root.querySelector('#btn-trigger')?.addEventListener('click', h.onTrigger);
+  root.querySelector('#btn-booking')?.addEventListener('click', h.onBooking);
+  root.querySelector('#btn-booking-verdict')?.addEventListener('click', h.onBookingVerdict);
   root.querySelector('#btn-done')?.addEventListener('click', h.onDone);
   root.querySelector('#btn-fail')?.addEventListener('click', h.onFail);
   root.querySelector('#btn-score')?.addEventListener('click', h.onScore);

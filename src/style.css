@@ -88,6 +88,7 @@ button {
 button:enabled:active { background: #1e1e1e; }
 button:disabled { opacity: 0.25; cursor: default; }
 button.danger { color: var(--danger); border-color: #3a2626; }
+button.primary { border-color: var(--fg); }
 
 /* ── 次要区块 ── */
 .section { margin-top: 26px; }

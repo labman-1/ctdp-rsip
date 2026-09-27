@@ -2,6 +2,7 @@
 // commit() 是唯一的状态变更路径（append 事件 → 落盘 → 重渲染）。
 
 import { load, append, replaceWith } from './state';
+import { bookingState } from './logic/chain';
 import { render } from './ui/render';
 import { openVerdictDialog, openScoreDialog, openImportConfirm } from './ui/dialogs';
 import { setupPwa } from './pwa';
@@ -13,6 +14,7 @@ let S = load();
 // UI 偏好（当前选中链）独立于核心数据，单独存一个 key
 const UI_KEY = 'ctdp_ui_chain';
 let currentId = localStorage.getItem(UI_KEY) ?? 'C1';
+if (currentId.endsWith('预约')) currentId = currentId.replace('预约', '');
 if (!S.chains[currentId]) currentId = Object.keys(S.chains)[0] ?? 'C1';
 
 function commit(e: ChainEvent): void {
@@ -64,13 +66,26 @@ function importJson(): void {
 
 const handlers = {
   onSwitchChain: () => {
-    const ids = Object.keys(S.chains);
+    const ids = Object.keys(S.chains).filter((id) => !id.endsWith('预约'));
     if (ids.length < 2) return;
     currentId = ids[(ids.indexOf(currentId) + 1) % ids.length];
     localStorage.setItem(UI_KEY, currentId);
     rerender();
   },
-  onTrigger: () => commit({ ts: Date.now(), type: 'trigger', chain: currentId }),
+  onTrigger: () => {
+    // 预约兑现：窗口内触发主链时，同步为预约链记一个 done（双事件提交）
+    const booking = bookingState(S, currentId);
+    commit({ ts: Date.now(), type: 'trigger', chain: currentId });
+    if (booking.phase === 'booked' || booking.phase === 'due') {
+      S = append(S, { ts: Date.now(), type: 'done', chain: currentId + '预约' });
+      rerender();
+    }
+  },
+  onBooking: () => commit({ ts: Date.now(), type: 'booking', chain: currentId + '预约' }),
+  onBookingVerdict: async () => {
+    const e = await openVerdictDialog(currentId + '预约');
+    if (e) commit(e);
+  },
   onDone: () => commit({ ts: Date.now(), type: 'done', chain: currentId }),
   onFail: async () => {
     const e = await openVerdictDialog(currentId);
@@ -86,3 +101,21 @@ const handlers = {
 
 rerender();
 setupPwa();
+
+// ── 倒计时驱动器：每秒局部更新倒计时文本；预约状态机相位变化时整页重渲染 ──
+let lastPhase = bookingState(S, currentId).phase;
+setInterval(() => {
+  const view = bookingState(S, currentId);
+  if (view.phase !== lastPhase) {
+    lastPhase = view.phase;
+    rerender();
+    return;
+  }
+  const el = document.getElementById('countdown');
+  if (el && view.deadline !== null) {
+    const remain = Math.max(0, Math.ceil((view.deadline - Date.now()) / 1000));
+    const m = Math.floor(remain / 60);
+    const sec = String(remain % 60).padStart(2, '0');
+    el.textContent = `${m}:${sec}`;
+  }
+}, 1000);
