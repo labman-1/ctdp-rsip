@@ -172,8 +172,23 @@ dialog .dlg-actions { display: grid; gap: 10px; margin-top: 14px; }
 dialog .dlg-actions button { min-height: 48px; }
 dialog .cancel { border: none; color: var(--dim); min-height: 36px; font-size: 13px; }
 
-/* 评分弹窗：五个大数字 */
-.score-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 12px 0; }
-.score-grid button { min-height: 56px; font-size: 22px; font-weight: 600; }
-.score-grid button small { display: block; font-size: 10px; font-weight: 400; color: var(--dim); margin-top: 3px; }
-.score-grid button.sel { background: #242424; border-color: var(--fg); }
+/* 评分弹窗：滑块（0-10，0.5 步进） */
+.score-slider { margin: 8px 0 12px; }
+.score-slider .score-value {
+  font-size: 40px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 6px;
+}
+.score-slider input[type="range"] {
+  width: 100%;
+  accent-color: var(--fg);
+  height: 32px;
+}
+.score-slider .score-marks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--dim);
+}

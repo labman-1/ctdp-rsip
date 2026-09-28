@@ -2,7 +2,6 @@
 // 零依赖、移动端友好、showModal 自带焦点陷阱。
 
 import type { ChainEvent } from '../types';
-import { SCORE_ANCHORS } from '../types';
 
 function el(html: string): HTMLDialogElement {
   const tpl = document.createElement('template');
@@ -49,17 +48,17 @@ export function openVerdictDialog(chainId: string, mode: 'now' | 'amend' = 'now'
   });
 }
 
-/** 睡前评分弹窗 — G1 根国策。resolve：score 事件或 null */
+/** 睡前评分弹窗 — G1 根国策。0-10 分制，0.5 步进（滑块）。resolve：score 事件或 null */
 export function openScoreDialog(): Promise<ChainEvent | null> {
   return new Promise((resolve) => {
     const dlg = el(`
       <dialog>
         <h3>睡前评分</h3>
-        <div class="hint">躺上床后回想今天，打个分。评分本身就是一次复盘。</div>
-        <div class="score-grid">
-          ${([1, 2, 3, 4, 5] as const).map((n) => `
-            <button data-score="${n}">${n}<small>${n === 1 || n === 3 || n === 5 ? SCORE_ANCHORS[n] : ''}</small></button>
-          `).join('')}
+        <div class="hint">躺上床后回想今天。0–10 分，0.5 步进：2 后悔 / 5 平静 / 8 满足。评分本身就是一次复盘。</div>
+        <div class="score-slider">
+          <div class="score-value" id="score-value">5.0</div>
+          <input type="range" id="score-input" min="0" max="10" step="0.5" value="5" />
+          <div class="score-marks"><span>0</span><span>2</span><span>5</span><span>8</span><span>10</span></div>
         </div>
         <textarea placeholder="一句话（建议引用一个事实而非评判）：今天下午打了一个节点"></textarea>
         <div class="dlg-actions">
@@ -68,25 +67,25 @@ export function openScoreDialog(): Promise<ChainEvent | null> {
         </div>
       </dialog>`);
 
-    let picked: 1 | 2 | 3 | 4 | 5 | null = null;
+    const slider = () => dlg.querySelector('#score-input') as HTMLInputElement;
+    const valueEl = () => dlg.querySelector('#score-value') as HTMLElement;
+    let picked = 5;
     const close = (result: ChainEvent | null) => { dlg.close(); dlg.remove(); resolve(result); };
 
-    dlg.querySelectorAll<HTMLButtonElement>('[data-score]').forEach((b) => {
-      b.addEventListener('click', () => {
-        picked = Number(b.dataset.score) as 1 | 2 | 3 | 4 | 5;
-        dlg.querySelectorAll('[data-score]').forEach((x) => x.classList.remove('sel'));
-        b.classList.add('sel');
-      });
-    });
     dlg.querySelector('[data-act="ok"]')?.addEventListener('click', () => {
-      if (picked === null) return;
       const note = (dlg.querySelector('textarea') as HTMLTextAreaElement).value.trim();
-      close({ ts: Date.now(), type: 'score', score: picked, note: note || undefined });
+      close({ ts: Date.now(), type: 'score', score: picked, scale: 10, note: note || undefined });
     });
     dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => close(null));
 
     document.body.appendChild(dlg);
     dlg.showModal();
+    requestAnimationFrame(() => {
+      slider().addEventListener('input', () => {
+        picked = Number(slider().value);
+        valueEl().textContent = picked.toFixed(1);
+      });
+    });
   });
 }
 

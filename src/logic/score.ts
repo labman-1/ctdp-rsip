@@ -7,15 +7,21 @@ import type { AppState } from '../types';
 
 export interface ScoreEntry {
   ts: number;
-  score: 1 | 2 | 3 | 4 | 5;
+  score: number; // 统一为 0-10 分制视图
   note?: string;
+}
+
+/** 旧 5 分制 → 新 10 分制的锚点语义映射：1→2（后悔）、3→5（平静）、5→8（满足），线性插值对齐 0.5 步进 */
+export function legacyTo10(old: number): number {
+  return Math.round(((old - 1) * 1.5 + 2) * 2) / 2;
 }
 
 export function scoreHistory(s: AppState): ScoreEntry[] {
   const out: ScoreEntry[] = [];
   for (const e of s.events) {
     if (e.type === 'score' && e.score !== undefined) {
-      out.push({ ts: e.ts, score: e.score, note: e.note });
+      const v = e.scale === 10 ? e.score : legacyTo10(e.score);
+      out.push({ ts: e.ts, score: v, note: e.note });
     }
   }
   return out;

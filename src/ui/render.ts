@@ -88,7 +88,7 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
     <div class="toolrow">
       <span>${
         today
-          ? `今日评分 ${today.score} · ${esc(today.note ?? '')}`
+          ? `今日评分 ${today.score.toFixed(1)} · ${esc(today.note ?? '')}`
           : '今日未评分'
       }</span>
       <button id="btn-score">评分</button>

@@ -22,8 +22,10 @@ export interface ChainEvent {
   readonly chain?: string;
   /** verdict：判例正文 */
   readonly verdictText?: string;
-  /** score：1-5 */
-  readonly score?: 1 | 2 | 3 | 4 | 5;
+  /** score：0-10 分制（0.5 步进）。旧事件无 scale 字段 = 1-5 分制，派生时按锚点语义映射 */
+  readonly score?: number;
+  /** 评分事件的分制标记；缺省视为旧 5 分制 */
+  readonly scale?: 5 | 10;
   /** 附注（失败原因、复盘一句话等） */
   readonly note?: string;
 }
@@ -49,8 +51,9 @@ export interface ChainView {
   lastFailAt: number | null;
 }
 
-export const SCORE_ANCHORS: Record<1 | 3 | 5, string> = {
-  1: '后悔今天',
-  3: '平静',
-  5: '由衷满足',
+/** 0-10 分制锚点（2026-09-28 G1 修订：原 1/3/5 锚点按语义映射为 2/5/8） */
+export const SCORE_ANCHORS: Record<number, string> = {
+  2: '后悔今天',
+  5: '平静',
+  8: '由衷满足',
 };
