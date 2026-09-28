@@ -143,6 +143,7 @@ button.primary { border-color: var(--fg); }
 }
 .footer button { min-height: 44px; font-size: 13px; padding: 0 14px; color: var(--dim); }
 .weekavg { font-size: 13px; color: var(--dim); }
+.weekavg .ver { font-size: 10px; opacity: 0.6; }
 
 /* ── 弹窗 ── */
 dialog {

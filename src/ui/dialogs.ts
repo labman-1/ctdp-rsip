@@ -3,6 +3,7 @@
 // 所有弹窗统一生命周期：按钮路径与 Esc/外部关闭路径都经 settled 防重入收口。
 
 import type { ChainEvent } from '../types';
+import { SCORE_ANCHORS } from '../logic/score';
 
 function el(html: string): HTMLDialogElement {
   const tpl = document.createElement('template');
@@ -75,7 +76,7 @@ export function openScoreDialog(): Promise<ChainEvent | null> {
     const dlg = el(`
       <dialog>
         <h3>睡前评分</h3>
-        <div class="hint">躺上床后回想今天。0–10 分，0.5 步进：2 后悔 / 5 平静 / 8 满足。评分本身就是一次复盘。</div>
+        <div class="hint">躺上床后回想今天。0–10 分，0.5 步进：${Object.entries(SCORE_ANCHORS).map(([k, v]) => `${k} ${v}`).join(' / ')}。评分本身就是一次复盘。</div>
         <div class="score-slider">
           <div class="score-value" id="score-value">5.0</div>
           <input type="range" id="score-input" min="0" max="10" step="0.5" value="5" />

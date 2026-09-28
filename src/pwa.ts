@@ -19,6 +19,12 @@ function makeIcon(size: number): string {
 }
 
 export function setupPwa(): void {
+  // 注册 Service Worker（network-first 缓存，见 public/sw.js）；file:// 或不支持时静默跳过
+  try {
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+      void navigator.serviceWorker.register('./sw.js');
+    }
+  } catch { /* SW 失败不影响核心功能 */ }
   try {
     const icon192 = makeIcon(192);
     const icon512 = makeIcon(512);

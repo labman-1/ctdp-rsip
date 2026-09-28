@@ -51,9 +51,3 @@ export interface ChainView {
   lastFailAt: number | null;
 }
 
-/** 0-10 分制锚点（2026-09-28 G1 修订：原 1/3/5 锚点按语义映射为 2/5/8） */
-export const SCORE_ANCHORS: Record<number, string> = {
-  2: '后悔今天',
-  5: '平静',
-  8: '由衷满足',
-};

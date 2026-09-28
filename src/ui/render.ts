@@ -34,6 +34,10 @@ const EVENT_LABEL: Record<string, string> = {
 };
 
 export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: string): void {
+  // UI 状态外置：记录展开中的 details 位置，重建后恢复（全量重渲染不携带 UI 状态）
+  const openIndexes = Array.from(root.querySelectorAll('details'))
+    .map((d, i) => (d as HTMLDetailsElement).open ? i : -1)
+    .filter((i) => i >= 0);
   const chain = computeChain(s, currentId);
   if (!chain) { root.innerHTML = '<p>状态损坏</p>'; return; }
   const multi = Object.keys(s.chains).length > 1;
@@ -118,7 +122,7 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
     </details>
 
     <div class="footer">
-      <span class="weekavg">${avg !== null ? `近 7 天均分 ${avg.toFixed(1)}` : ''}</span>
+      <span class="weekavg">${avg !== null ? `近 7 天均分 ${avg.toFixed(1)}` : ''} <span class="ver">v${__APP_VERSION__}</span></span>
       <div>
         <button id="btn-export">导出</button>
         <button id="btn-import">导入</button>
@@ -137,6 +141,11 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
   root.querySelector('#btn-score')?.addEventListener('click', h.onScore);
   root.querySelector('#btn-export')?.addEventListener('click', h.onExport);
   root.querySelector('#btn-import')?.addEventListener('click', h.onImport);
+
+  // 恢复展开状态（details 顺序固定，按索引对应）
+  root.querySelectorAll('details').forEach((d, i) => {
+    if (openIndexes.includes(i)) (d as HTMLDetailsElement).open = true;
+  });
 }
 
 export { fmtTime };

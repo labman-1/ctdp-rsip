@@ -1,10 +1,11 @@
-// 入口：加载状态 → 绑定事件 → 全量渲染。
+// 入口（组合根）：加载状态 → 绑定事件 → 全量渲染 → 启动驱动器与 PWA。
 // commit() 是唯一的状态变更路径（append 事件 → 落盘 → 重渲染）。
 
 import { load, append, replaceWith, loadUiChain, saveUiChain } from './state';
-import { bookingState, computeChain } from './logic/chain';
+import { bookingState } from './logic/chain';
 import { render } from './ui/render';
 import { openVerdictDialog, openScoreDialog, openImportConfirm } from './ui/dialogs';
+import { startClock } from './ui/clock';
 import { setupPwa } from './pwa';
 import type { ChainEvent } from './types';
 import './style.css';
@@ -16,11 +17,19 @@ if (!S.chains[currentId]) currentId = Object.keys(S.chains)[0] ?? 'C1';
 
 function commit(e: ChainEvent): void {
   S = append(S, e);
-  render(root, S, handlers, currentId);
+  rerender();
 }
 
 function rerender(): void {
   render(root, S, handlers, currentId);
+}
+
+function notify(title: string, body: string): void {
+  try {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      new Notification(title, { body, tag: 'ctdp-booking' });
+    }
+  } catch { /* 无授权或环境不支持时静默 */ }
 }
 
 function exportJson(): void {
@@ -114,53 +123,9 @@ const handlers = {
 
 rerender();
 setupPwa();
-
-// ── 倒计时驱动器：每秒局部更新倒计时文本；预约状态机相位变化时整页重渲染。
-//    到期/失约时：系统通知（已授权且环境允许）+ 标签页标题闪烁（后台标签的次级信号）。──
-const BASE_TITLE = document.title;
-let lastPhase = bookingState(S, currentId).phase;
-let flashOn = false;
-
-function notify(title: string, body: string): void {
-  try {
-    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-      new Notification(title, { body, tag: 'ctdp-booking' });
-    }
-  } catch { /* 无授权或环境不支持时静默 */ }
-}
-
-setInterval(() => {
-  const view = bookingState(S, currentId);
-  if (view.phase !== lastPhase) {
-    lastPhase = view.phase;
-    rerender();
-    if (view.phase === 'due') {
-      notify('预约到期', '宽限 5 分钟内立即触发 — 链 · CTDP');
-    } else if (view.phase === 'overdue') {
-      notify('预约失约', '打开页面完成下必为例裁决');
-    } else if (view.phase === 'none') {
-      document.title = BASE_TITLE;
-    }
-    return;
-  }
-  // 标题闪烁：due/overdue 期间持续，回正自动恢复
-  if (view.phase === 'due' || view.phase === 'overdue') {
-    flashOn = !flashOn;
-    document.title = flashOn ? '⚠ 预约待处理' : BASE_TITLE;
-  }
-  const el = document.getElementById('countdown');
-  if (el && view.deadline !== null) {
-    const remain = Math.max(0, Math.ceil((view.deadline - Date.now()) / 1000));
-    const m = Math.floor(remain / 60);
-    const sec = String(remain % 60).padStart(2, '0');
-    el.textContent = `${m}:${sec}`;
-  }
-  // 主链专注中的经过分钟数（与预约倒计时同一驱动器，每秒刷新）
-  const elapsedEl = document.getElementById('elapsed');
-  if (elapsedEl) {
-    const v = computeChain(S, currentId);
-    if (v?.activeSince !== null && v?.activeSince !== undefined) {
-      elapsedEl.textContent = String(Math.floor((Date.now() - v.activeSince) / 60000));
-    }
-  }
-}, 1000);
+startClock({
+  getState: () => S,
+  getCurrentId: () => currentId,
+  rerender,
+  notify,
+});
