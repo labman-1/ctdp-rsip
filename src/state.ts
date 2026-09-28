@@ -54,11 +54,23 @@ export function save(s: AppState): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
 }
 
-/** 唯一的写路径：追加事件 → 落盘 → 返回（事件不可变，调用方不得复用同一对象再改） */
-export function append(s: AppState, e: ChainEvent): AppState {
-  const next: AppState = { ...s, events: [...s.events, e] };
+/** 唯一的写路径：批量追加事件 → 一次落盘（多事件提交原子化）→ 返回新状态 */
+export function append(s: AppState, ...es: ChainEvent[]): AppState {
+  const next: AppState = { ...s, events: [...s.events, ...es] };
   save(next);
   return next;
+}
+
+// ── UI 偏好存储（所有 localStorage 访问收敛在本文件，main/ui 不直接摸存储）──
+const UI_KEY = 'ctdp_ui_chain';
+
+export function loadUiChain(fallback: string): string {
+  const v = localStorage.getItem(UI_KEY) ?? fallback;
+  return v.endsWith('预约') ? v.replace('预约', '') : v;
+}
+
+export function saveUiChain(id: string): void {
+  localStorage.setItem(UI_KEY, id);
 }
 
 /** 导入 = 整体替换（调用方负责二次确认；仅做结构校验） */

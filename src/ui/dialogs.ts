@@ -1,5 +1,6 @@
 // 原生 <dialog> 模态：判例裁决（下必为例）与睡前评分（G1）。
 // 零依赖、移动端友好、showModal 自带焦点陷阱。
+// 所有弹窗统一生命周期：按钮路径与 Esc/外部关闭路径都经 settled 防重入收口。
 
 import type { ChainEvent } from '../types';
 
@@ -7,6 +8,26 @@ function el(html: string): HTMLDialogElement {
   const tpl = document.createElement('template');
   tpl.innerHTML = html.trim();
   return tpl.content.firstElementChild as HTMLDialogElement;
+}
+
+/** 统一生命周期：finish 走正常路径；close 事件兜底 Esc/浏览器关闭 */
+function wireLifecycle(dlg: HTMLDialogElement, resolve: (v: ChainEvent | null) => void): (v: ChainEvent | null) => void {
+  let settled = false;
+  const finish = (result: ChainEvent | null) => {
+    if (settled) return;
+    settled = true;
+    dlg.close();
+    dlg.remove();
+    resolve(result);
+  };
+  // Esc / 浏览器关闭路径：不 resolve 结果（视为"稍后再裁决"）
+  dlg.addEventListener('close', () => {
+    if (settled) return;
+    settled = true;
+    dlg.remove();
+    resolve(null);
+  });
+  return finish;
 }
 
 /** 裁决弹窗 — 协议核心：疑似违规只允许二选一，不允许"这次算了"。
@@ -30,18 +51,18 @@ export function openVerdictDialog(chainId: string, mode: 'now' | 'amend' = 'now'
         </div>
       </dialog>`);
 
-    const close = (result: ChainEvent | null) => { dlg.close(); dlg.remove(); resolve(result); };
+    const finish = wireLifecycle(dlg, resolve);
     const text = () => (dlg.querySelector('textarea') as HTMLTextAreaElement).value.trim();
     const base = () => ({ ts: Date.now(), chain: chainId });
 
     dlg.querySelector('[data-act="fail"]')?.addEventListener('click', () =>
-      close({ ...base(), type: 'fail', note: text() || undefined }));
+      finish({ ...base(), type: 'fail', note: text() || undefined }));
     dlg.querySelector('[data-act="verdict"]')?.addEventListener('click', () => {
       const t = text();
       if (!t) { (dlg.querySelector('textarea') as HTMLTextAreaElement).focus(); return; }
-      close({ ...base(), type: 'verdict', verdictText: t });
+      finish({ ...base(), type: 'verdict', verdictText: t });
     });
-    dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => close(null));
+    dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => finish(null));
 
     document.body.appendChild(dlg);
     dlg.showModal();
@@ -67,16 +88,16 @@ export function openScoreDialog(): Promise<ChainEvent | null> {
         </div>
       </dialog>`);
 
+    const finish = wireLifecycle(dlg, resolve);
     const slider = () => dlg.querySelector('#score-input') as HTMLInputElement;
     const valueEl = () => dlg.querySelector('#score-value') as HTMLElement;
     let picked = 5;
-    const close = (result: ChainEvent | null) => { dlg.close(); dlg.remove(); resolve(result); };
 
     dlg.querySelector('[data-act="ok"]')?.addEventListener('click', () => {
       const note = (dlg.querySelector('textarea') as HTMLTextAreaElement).value.trim();
-      close({ ts: Date.now(), type: 'score', score: picked, scale: 10, note: note || undefined });
+      finish({ ts: Date.now(), type: 'score', score: picked, scale: 10, note: note || undefined });
     });
-    dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => close(null));
+    dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => finish(null));
 
     document.body.appendChild(dlg);
     dlg.showModal();
@@ -89,7 +110,7 @@ export function openScoreDialog(): Promise<ChainEvent | null> {
   });
 }
 
-/** 导入二次确认（覆盖是破坏性操作） */
+/** 导入二次确认（覆盖是破坏性操作）。resolve：true=替换 / false=取消（含 Esc） */
 export function openImportConfirm(count: number): Promise<boolean> {
   return new Promise((resolve) => {
     const dlg = el(`
@@ -101,8 +122,11 @@ export function openImportConfirm(count: number): Promise<boolean> {
           <button class="cancel" data-act="cancel">取消</button>
         </div>
       </dialog>`);
-    dlg.querySelector('[data-act="ok"]')?.addEventListener('click', () => { dlg.close(); dlg.remove(); resolve(true); });
-    dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => { dlg.close(); dlg.remove(); resolve(false); });
+    let settled = false;
+    const done = (v: boolean) => { if (settled) return; settled = true; dlg.close(); dlg.remove(); resolve(v); };
+    dlg.addEventListener('close', () => done(false));
+    dlg.querySelector('[data-act="ok"]')?.addEventListener('click', () => done(true));
+    dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => done(false));
     document.body.appendChild(dlg);
     dlg.showModal();
   });

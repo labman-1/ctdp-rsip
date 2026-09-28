@@ -1,7 +1,7 @@
 // 入口：加载状态 → 绑定事件 → 全量渲染。
 // commit() 是唯一的状态变更路径（append 事件 → 落盘 → 重渲染）。
 
-import { load, append, replaceWith } from './state';
+import { load, append, replaceWith, loadUiChain, saveUiChain } from './state';
 import { bookingState, computeChain } from './logic/chain';
 import { render } from './ui/render';
 import { openVerdictDialog, openScoreDialog, openImportConfirm } from './ui/dialogs';
@@ -11,10 +11,7 @@ import './style.css';
 
 const root = document.getElementById('app') as HTMLElement;
 let S = load();
-// UI 偏好（当前选中链）独立于核心数据，单独存一个 key
-const UI_KEY = 'ctdp_ui_chain';
-let currentId = localStorage.getItem(UI_KEY) ?? 'C1';
-if (currentId.endsWith('预约')) currentId = currentId.replace('预约', '');
+let currentId = loadUiChain('C1');
 if (!S.chains[currentId]) currentId = Object.keys(S.chains)[0] ?? 'C1';
 
 function commit(e: ChainEvent): void {
@@ -69,16 +66,21 @@ const handlers = {
     const ids = Object.keys(S.chains).filter((id) => !id.endsWith('预约'));
     if (ids.length < 2) return;
     currentId = ids[(ids.indexOf(currentId) + 1) % ids.length];
-    localStorage.setItem(UI_KEY, currentId);
+    saveUiChain(currentId);
     rerender();
   },
   onTrigger: () => {
-    // 预约兑现：窗口内触发主链时，同步为预约链记一个 done（双事件提交）
+    // 预约兑现：窗口内触发主链时，同批提交预约链的 done（原子化双事件）
     const booking = bookingState(S, currentId);
-    commit({ ts: Date.now(), type: 'trigger', chain: currentId });
     if (booking.phase === 'booked' || booking.phase === 'due') {
-      S = append(S, { ts: Date.now(), type: 'done', chain: currentId + '预约' });
+      S = append(
+        S,
+        { ts: Date.now(), type: 'trigger', chain: currentId },
+        { ts: Date.now(), type: 'done', chain: currentId + '预约' },
+      );
       rerender();
+    } else {
+      commit({ ts: Date.now(), type: 'trigger', chain: currentId });
     }
   },
   onBooking: () => {
