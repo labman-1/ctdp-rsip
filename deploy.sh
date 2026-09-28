@@ -5,7 +5,11 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-# 前置检查：工作区必须干净，main 分支
+# 前置检查：构建产物存在、工作区干净、main 分支
+if [ ! -f dist/index.html ]; then
+  echo "错误：dist 构建产物不存在，先执行 npm run build" >&2
+  exit 1
+fi
 if [ -n "$(git status --porcelain)" ]; then
   echo "错误：工作区有未提交修改，先提交再部署" >&2
   exit 1
