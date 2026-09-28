@@ -12,6 +12,7 @@ export interface Handlers {
   onBookingVerdict(): void;
   onDone(): void;
   onFail(): void;
+  onAmend(chainId: string): void;
   onScore(): void;
   onExport(): void;
   onImport(): void;
@@ -43,8 +44,9 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
 
   const statusHtml = active
     ? `<div class="status active">专注中 · 已 ${mins} 分 — 手机离手</div>`
-    : booking.phase === 'booked'
-      ? `<div class="status active">预约中 · 剩余 <span id="countdown">--:--</span></div>`
+      : booking.phase === 'booked'
+        ? `<div class="status active">预约中 · 剩余 <span id="countdown">--:--</span></div>
+           <div class="status" style="font-size:12px; margin-top:4px">锁屏场景请顺手设一个 15 分钟系统倒计时（页面后台时提醒不可靠）</div>`
       : booking.phase === 'due'
         ? `<div class="status active">预约到期 · 宽限中 — 立即触发</div>`
         : booking.phase === 'overdue'
@@ -108,7 +110,9 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
           const extra = e.type === 'verdict' && e.verdictText ? `：${e.verdictText}`
             : e.type === 'score' ? ` ${e.score}${e.note ? ` · ${e.note}` : ''}`
             : e.note ? `：${e.note}` : '';
-          return `<div class="row"><span class="t">${fmtTime(e.ts)}</span><span>${EVENT_LABEL[e.type] ?? e.type}${esc(extra)}</span></div>`;
+          const amend = e.type === 'done' && e.chain
+            ? `<span class="amend" data-chain="${esc(e.chain)}">补判</span>` : '';
+          return `<div class="row"><span class="t">${fmtTime(e.ts)}</span><span>${EVENT_LABEL[e.type] ?? e.type}${esc(extra)}</span>${amend}</div>`;
         }).join('')
       }</div>
     </details>
@@ -126,6 +130,8 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
   root.querySelector('#btn-trigger')?.addEventListener('click', h.onTrigger);
   root.querySelector('#btn-booking')?.addEventListener('click', h.onBooking);
   root.querySelector('#btn-booking-verdict')?.addEventListener('click', h.onBookingVerdict);
+  root.querySelectorAll<HTMLElement>('.amend').forEach((a) =>
+    a.addEventListener('click', () => h.onAmend(a.dataset.chain ?? '')));
   root.querySelector('#btn-done')?.addEventListener('click', h.onDone);
   root.querySelector('#btn-fail')?.addEventListener('click', h.onFail);
   root.querySelector('#btn-score')?.addEventListener('click', h.onScore);

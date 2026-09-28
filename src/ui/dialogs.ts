@@ -10,14 +10,16 @@ function el(html: string): HTMLDialogElement {
   return tpl.content.firstElementChild as HTMLDialogElement;
 }
 
-/** 失败裁决弹窗 — 协议核心：疑似违规只允许二选一，不允许"这次算了"。
+/** 裁决弹窗 — 协议核心：疑似违规只允许二选一，不允许"这次算了"。
+ *  mode='amend' 为补判（结算后追加裁决），其余为当庭裁决。
  *  resolve：fail 事件 / verdict 事件 / null（用户关闭，稍后再裁决） */
-export function openVerdictDialog(chainId: string): Promise<ChainEvent | null> {
+export function openVerdictDialog(chainId: string, mode: 'now' | 'amend' = 'now'): Promise<ChainEvent | null> {
   return new Promise((resolve) => {
+    const amend = mode === 'amend';
     const dlg = el(`
       <dialog>
-        <h3>下必为例 · 裁决</h3>
-        <div class="hint">描述本次疑似违规，然后二选一。<br>
+        <h3>下必为例 · ${amend ? '补判' : '裁决'}</h3>
+        <div class="hint">${amend ? '结算后发现问题，向该链<b>追加</b>一条裁决事件，链状态自动更正，历史不变。<br>' : ''}描述本次疑似违规，然后二选一。<br>
         判失败：链条清零，从 #1 重来。<br>
         判允许：写入判例，同类情况从此永久适用。<br>
         <b>不允许"这次先算了"。</b></div>
@@ -25,7 +27,7 @@ export function openVerdictDialog(chainId: string): Promise<ChainEvent | null> {
         <div class="dlg-actions">
           <button class="danger" data-act="fail">判失败（链清零）</button>
           <button data-act="verdict">判允许（登记判例，链不断）</button>
-          <button class="cancel" data-act="cancel">稍后再裁决</button>
+          <button class="cancel" data-act="cancel">${amend ? '不改了' : '稍后再裁决'}</button>
         </div>
       </dialog>`);
 

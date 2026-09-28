@@ -82,6 +82,15 @@ describe('computeChain 链规则', () => {
     expect(v?.length).toBe(1);
   });
 
+  it('补判语义：done 之后末尾追加 fail，当前链长自动归零，历史与总量保留', () => {
+    const v = computeChain(state(
+      ev('trigger'), ev('done'), ev('done'),
+      ev('fail', { note: '补判：结算后才发现中途违规' }),
+    ), 'C1');
+    expect(v?.length).toBe(0);
+    expect(v?.totalDone).toBe(2);
+  });
+
   it('不存在的链返回 null；canTrigger 与活跃态联动', () => {
     const s = state(ev('trigger'));
     expect(computeChain(s, 'NOPE')).toBeNull();

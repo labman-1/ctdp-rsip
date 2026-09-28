@@ -110,8 +110,17 @@ button.primary { border-color: var(--fg); }
   line-height: 1.6;
   padding: 4px 2px 10px;
 }
-.itemlist .row { display: flex; gap: 10px; padding: 3px 0; }
+.itemlist .row { display: flex; gap: 10px; padding: 3px 0; align-items: baseline; }
 .itemlist .row .t { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.itemlist .row .amend {
+  margin-left: auto;
+  color: var(--dim);
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.itemlist .row .amend:active { color: var(--fg); }
 
 /* ── 评分行 / 工具行 ── */
 .toolrow {

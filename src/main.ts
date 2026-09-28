@@ -81,7 +81,13 @@ const handlers = {
       rerender();
     }
   },
-  onBooking: () => commit({ ts: Date.now(), type: 'booking', chain: currentId + '预约' }),
+  onBooking: () => {
+    // 有上下文的授权时机：用户刚表达"我要预约"（默认态才询问，拒绝过不再骚扰）
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      void Notification.requestPermission();
+    }
+    commit({ ts: Date.now(), type: 'booking', chain: currentId + '预约' });
+  },
   onBookingVerdict: async () => {
     const e = await openVerdictDialog(currentId + '预约');
     if (e) commit(e);
@@ -89,6 +95,11 @@ const handlers = {
   onDone: () => commit({ ts: Date.now(), type: 'done', chain: currentId }),
   onFail: async () => {
     const e = await openVerdictDialog(currentId);
+    if (e) commit(e);
+  },
+  onAmend: async (chainId: string) => {
+    if (!chainId) return;
+    const e = await openVerdictDialog(chainId, 'amend');
     if (e) commit(e);
   },
   onScore: async () => {
@@ -102,14 +113,38 @@ const handlers = {
 rerender();
 setupPwa();
 
-// ── 倒计时驱动器：每秒局部更新倒计时文本；预约状态机相位变化时整页重渲染 ──
+// ── 倒计时驱动器：每秒局部更新倒计时文本；预约状态机相位变化时整页重渲染。
+//    到期/失约时：系统通知（已授权且环境允许）+ 标签页标题闪烁（后台标签的次级信号）。──
+const BASE_TITLE = document.title;
 let lastPhase = bookingState(S, currentId).phase;
+let flashOn = false;
+
+function notify(title: string, body: string): void {
+  try {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      new Notification(title, { body, tag: 'ctdp-booking' });
+    }
+  } catch { /* 无授权或环境不支持时静默 */ }
+}
+
 setInterval(() => {
   const view = bookingState(S, currentId);
   if (view.phase !== lastPhase) {
     lastPhase = view.phase;
     rerender();
+    if (view.phase === 'due') {
+      notify('预约到期', '宽限 5 分钟内立即触发 — 链 · CTDP');
+    } else if (view.phase === 'overdue') {
+      notify('预约失约', '打开页面完成下必为例裁决');
+    } else if (view.phase === 'none') {
+      document.title = BASE_TITLE;
+    }
     return;
+  }
+  // 标题闪烁：due/overdue 期间持续，回正自动恢复
+  if (view.phase === 'due' || view.phase === 'overdue') {
+    flashOn = !flashOn;
+    document.title = flashOn ? '⚠ 预约待处理' : BASE_TITLE;
   }
   const el = document.getElementById('countdown');
   if (el && view.deadline !== null) {
