@@ -1,10 +1,16 @@
 // 入口（组合根）：加载状态 → 绑定事件 → 全量渲染 → 启动驱动器与 PWA。
 // commit() 是唯一的状态变更路径（append 事件 → 落盘 → 重渲染）。
 
-import { load, append, replaceWith, loadUiChain, saveUiChain } from './state';
+import { load, append, replaceWith, loadUiChain, saveUiChain, addPolicy, updatePolicy } from './state';
 import { bookingState } from './logic/chain';
+import { policyView } from './logic/policy';
 import { render } from './ui/render';
+import { renderPolicy } from './ui/renderPolicy';
 import { openVerdictDialog, openScoreDialog, openImportConfirm } from './ui/dialogs';
+import {
+  openNewPolicyDialog, openSettleDialog, openJoinDialog,
+  openCollapseConfirm, openPolicyDetail, openUpgradeDialog, openAmendDialog,
+} from './ui/policyDialogs';
 import { startClock } from './ui/clock';
 import { setupPwa } from './pwa';
 import type { ChainEvent } from './types';
@@ -14,6 +20,7 @@ const root = document.getElementById('app') as HTMLElement;
 let S = load();
 let currentId = loadUiChain('C1');
 if (!S.chains[currentId]) currentId = Object.keys(S.chains)[0] ?? 'C1';
+let tab: 'chain' | 'policy' = 'chain';
 
 function commit(e: ChainEvent): void {
   S = append(S, e);
@@ -21,7 +28,8 @@ function commit(e: ChainEvent): void {
 }
 
 function rerender(): void {
-  render(root, S, handlers, currentId);
+  if (tab === 'policy') renderPolicy(root, S, policyHandlers, tab);
+  else render(root, S, handlers, currentId);
 }
 
 function notify(title: string, body: string): void {
@@ -116,9 +124,85 @@ const handlers = {
   onScore: async () => {
     const e = await openScoreDialog();
     if (e) commit(e);
+    // 评分后的软引导：国策结算了吗（两个睡前仪式合一）
+    if (e && Object.keys(S.policies).length > 0) {
+      const v = policyView(S);
+      const unsettled = Object.values(v.nodes).filter((n) => n.alive && !n.doneToday).length;
+      if (unsettled > 0) {
+        setTimeout(() => {
+          if (confirm(`还有 ${unsettled} 条在树国策今日未结算，现在结算吗？`)) {
+            void policyHandlers.onSettle();
+          }
+        }, 200);
+      }
+    }
   },
   onExport: exportJson,
   onImport: importJson,
+  onSwitchTab: (t: 'chain' | 'policy') => { tab = t; rerender(); },
+};
+
+const policyHandlers = {
+  onSwitchTab: (t: 'chain' | 'policy') => { tab = t; rerender(); },
+  onNewPolicy: async () => {
+    const def = await openNewPolicyDialog();
+    if (def) { S = addPolicy(S, def); rerender(); }
+  },
+  onSettle: async () => {
+    const ids = await openSettleDialog(S);
+    if (!ids) return;
+    // 与当前 doneToday 对比：补记新增的 done（不支持撤销当日 done——如实记录）
+    const v = policyView(S);
+    const news = ids.filter((id) => !v.nodes[id]?.doneToday);
+    if (news.length > 0) {
+      const doneEvents: ChainEvent[] = news.map((id) => ({ ts: Date.now(), type: 'policy_done' as const, policyId: id }));
+      S = append(S, ...doneEvents);
+      rerender();
+    }
+  },
+  onJoin: async (id: string) => {
+    if (!id) return;
+    const v = policyView(S);
+    const parent = await openJoinDialog(S, v, id);
+    if (parent === undefined) return; // 取消
+    const isRevive = v.nodes[id]?.onTreeSince != null; // 曾上过树 → 复活（末梢原则同适用）
+    S = append(S, {
+      ts: Date.now(),
+      type: isRevive ? 'policy_revive' : 'policy_join',
+      policyId: id,
+      parent,
+    });
+    rerender();
+  },
+  onCollapse: async (id: string) => {
+    if (!id) return;
+    const v = policyView(S);
+    if (await openCollapseConfirm(S, v, id)) {
+      S = append(S, { ts: Date.now(), type: 'policy_fail', policyId: id });
+      rerender();
+    }
+  },
+  onDetail: async (id: string) => {
+    if (!id) return;
+    const action = await openPolicyDetail(S, id);
+    if (action === 'upgrade') {
+      const cur = S.policies[id]?.level ?? 1;
+      const up = await openUpgradeDialog(cur);
+      if (up) {
+        S = append(S, { ts: Date.now(), type: 'policy_upgrade', policyId: id, newLevel: up.level, note: up.note });
+        S = updatePolicy(S, id, { level: up.level });
+        rerender();
+      }
+    } else if (action === 'amend') {
+      const text = await openAmendDialog();
+      if (text) {
+        const def = S.policies[id];
+        const amendments = [...(def.amendments ?? []), { text, date: Date.now() }];
+        S = updatePolicy(S, id, { amendments });
+        rerender();
+      }
+    }
+  },
 };
 
 rerender();

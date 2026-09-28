@@ -11,6 +11,7 @@ const ev = (type: ChainEvent['type'], chain: string, extra: Partial<ChainEvent> 
 function state(...events: ChainEvent[]): AppState {
   return {
     version: 1,
+    policies: {},
     chains: {
       C1: { name: '主链', createdAt: t },
       C1预约: { name: '主链 · 预约链', createdAt: t },

@@ -4,10 +4,44 @@
 // （对 C++ 思维：S 是全局对象，save() 相当于变更后 autosave 序列化）
 // ─────────────────────────────────────────────────────────────
 
-import type { AppState, ChainEvent } from './types';
+import type { AppState, ChainEvent, PolicyDef } from './types';
 
 // 带版本号的 key：schema 演进时换 key 重开新档，不做迁移
 const STORAGE_KEY = 'ctdp_v1';
+
+let policySeq = 0;
+
+/** 新建国策 id：P1、P2……（进程内自增，持久化后以 state.policies 现有 id 为准） */
+export function nextPolicyId(s: AppState): string {
+  const nums = Object.keys(s.policies).map((id) => Number(id.slice(1)) || 0);
+  return `P${Math.max(policySeq, ...nums) + 1}`;
+}
+
+/** 新建国策定义（入手牌库：定义存在即手牌，无需事件） */
+export function addPolicy(s: AppState, def: Omit<PolicyDef, 'createdAt'>): AppState {
+  const id = nextPolicyId(s);
+  const next: AppState = {
+    ...s,
+    policies: { ...s.policies, [id]: { ...def, createdAt: Date.now() } },
+  };
+  save(next);
+  return next;
+}
+
+/** 修正国策定义（改名/改要求/lv/装饰/追加修正条款）——定义在 state，直接改并落盘 */
+export function updatePolicy(
+  s: AppState,
+  id: string,
+  patch: Partial<Omit<PolicyDef, 'createdAt'>>,
+): AppState {
+  if (!s.policies[id]) return s;
+  const next: AppState = {
+    ...s,
+    policies: { ...s.policies, [id]: { ...s.policies[id], ...patch } },
+  };
+  save(next);
+  return next;
+}
 
 function defaultState(): AppState {
   return ensureDerivedChains({
@@ -16,6 +50,7 @@ function defaultState(): AppState {
       C1: { name: '算法题（本业）', createdAt: Date.now() },
       C2: { name: '锻炼：校园跑/健身房 40min-1h', createdAt: Date.now() },
     },
+    policies: {},
     events: [],
   });
 }
@@ -34,7 +69,8 @@ function ensureDerivedChains(s: AppState): AppState {
   return { ...s, chains: patched };
 }
 /** 防御式加载：损坏/缺失一律回退到默认档（与 Hamon 的 `|| 'null'` 兜底同理）。
- *  部署补丁（只补元信息，不动事件流）：早期存档注入 C2；为每条主链补齐预约链定义。 */
+ *  部署补丁（只补元信息，不动事件流）：早期存档注入 C2；为每条主链补齐预约链定义；
+ *  v0.4 前存档补空的 policies 容器。 */
 export function load(): AppState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -42,6 +78,9 @@ export function load(): AppState {
     const parsed = JSON.parse(raw) as AppState;
     if (parsed.version !== 1 || !Array.isArray(parsed.events) || typeof parsed.chains !== 'object') {
       return defaultState();
+    }
+    if (typeof parsed.policies !== 'object' || parsed.policies === null) {
+      return ensureDerivedChains({ ...parsed, policies: {} });
     }
     return ensureDerivedChains(parsed);
   } catch {

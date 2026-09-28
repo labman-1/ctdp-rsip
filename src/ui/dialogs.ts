@@ -4,31 +4,12 @@
 
 import type { ChainEvent } from '../types';
 import { SCORE_ANCHORS } from '../logic/score';
+import { wireLifecycle } from './lifecycle';
 
 function el(html: string): HTMLDialogElement {
   const tpl = document.createElement('template');
   tpl.innerHTML = html.trim();
   return tpl.content.firstElementChild as HTMLDialogElement;
-}
-
-/** 统一生命周期：finish 走正常路径；close 事件兜底 Esc/浏览器关闭 */
-function wireLifecycle(dlg: HTMLDialogElement, resolve: (v: ChainEvent | null) => void): (v: ChainEvent | null) => void {
-  let settled = false;
-  const finish = (result: ChainEvent | null) => {
-    if (settled) return;
-    settled = true;
-    dlg.close();
-    dlg.remove();
-    resolve(result);
-  };
-  // Esc / 浏览器关闭路径：不 resolve 结果（视为"稍后再裁决"）
-  dlg.addEventListener('close', () => {
-    if (settled) return;
-    settled = true;
-    dlg.remove();
-    resolve(null);
-  });
-  return finish;
 }
 
 /** 裁决弹窗 — 协议核心：疑似违规只允许二选一，不允许"这次算了"。

@@ -12,6 +12,7 @@ const ev = (type: ChainEvent['type'], extra: Partial<ChainEvent> = {}): ChainEve
 function state(...events: ChainEvent[]): AppState {
   return {
     version: 1,
+    policies: {},
     chains: { C1: { name: '算法题（本业）', createdAt: t } },
     events,
   };

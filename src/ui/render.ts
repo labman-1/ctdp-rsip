@@ -1,11 +1,13 @@
 // 全量重渲染：DOM 永远从 AppState 重算，无双向绑定、无增量同步。
 // 事件量级（每天几条）下 innerHTML 重建完全够用。
+// tab 分发：链视图渲染整个页面并挂 tabbar；国策 tab 的切换由 main 拦截（见 renderPolicy）。
 
 import type { AppState } from '../types';
 import { computeChain, verdictList, bookingState } from '../logic/chain';
 import { todayScore, averageLast7 } from '../logic/score';
 
 export interface Handlers {
+  onSwitchTab(tab: 'chain' | 'policy'): void;
   onSwitchChain(): void;
   onTrigger(): void;
   onBooking(): void;
@@ -128,7 +130,13 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
         <button id="btn-import">导入</button>
       </div>
     </div>
+    <nav class="tabbar">
+      <button class="tab active" id="tab-chain">链</button>
+      <button class="tab" id="tab-policy">国策</button>
+    </nav>
   `;
+
+  root.querySelector('#tab-policy')?.addEventListener('click', () => h.onSwitchTab('policy'));
 
   root.querySelector('#btn-chain')?.addEventListener('click', h.onSwitchChain);
   root.querySelector('#btn-trigger')?.addEventListener('click', h.onTrigger);

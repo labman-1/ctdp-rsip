@@ -40,7 +40,7 @@ describe('state 持久化', () => {
   });
 
   it('replaceWith 仅接受结构合法的整体替换', () => {
-    const good: AppState = { version: 1, chains: {}, events: [{ ts: 1, type: 'score', score: 5 }] };
+    const good: AppState = { version: 1, policies: {}, chains: {}, events: [{ ts: 1, type: 'score', score: 5 }] };
     expect(replaceWith(good)?.events).toHaveLength(1);
     expect(replaceWith({ junk: true })).toBeNull();
     expect(load().events).toHaveLength(1); // 替换成功后存档即新档

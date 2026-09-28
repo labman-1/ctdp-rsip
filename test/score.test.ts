@@ -9,7 +9,7 @@ const ev = (score: number, extra: Partial<ChainEvent> = {}): ChainEvent => ({
 });
 
 function state(...events: ChainEvent[]): AppState {
-  return { version: 1, chains: {}, events };
+  return { version: 1, policies: {}, chains: {}, events };
 }
 
 describe('legacyTo10 锚点语义映射（旧 5 分制 → 新 10 分制）', () => {
@@ -51,7 +51,7 @@ describe('score 派生（0-10 分制视图）', () => {
   it('averageLast7 混合新旧分制：映射后统一计算', () => {
     const now = t;
     const s: AppState = {
-      version: 1, chains: {},
+      version: 1, policies: {}, chains: {},
       events: [
         { ts: now - 3 * 24 * 3600 * 1000, type: 'score', score: 3 },            // 旧 → 5
         { ts: now - 1 * 24 * 3600 * 1000, type: 'score', score: 7.5, scale: 10 }, // 新 7.5
