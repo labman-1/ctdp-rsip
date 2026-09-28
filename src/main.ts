@@ -2,7 +2,7 @@
 // commit() 是唯一的状态变更路径（append 事件 → 落盘 → 重渲染）。
 
 import { load, append, replaceWith } from './state';
-import { bookingState } from './logic/chain';
+import { bookingState, computeChain } from './logic/chain';
 import { render } from './ui/render';
 import { openVerdictDialog, openScoreDialog, openImportConfirm } from './ui/dialogs';
 import { setupPwa } from './pwa';
@@ -152,5 +152,13 @@ setInterval(() => {
     const m = Math.floor(remain / 60);
     const sec = String(remain % 60).padStart(2, '0');
     el.textContent = `${m}:${sec}`;
+  }
+  // 主链专注中的经过分钟数（与预约倒计时同一驱动器，每秒刷新）
+  const elapsedEl = document.getElementById('elapsed');
+  if (elapsedEl) {
+    const v = computeChain(S, currentId);
+    if (v?.activeSince !== null && v?.activeSince !== undefined) {
+      elapsedEl.textContent = String(Math.floor((Date.now() - v.activeSince) / 60000));
+    }
   }
 }, 1000);

@@ -43,7 +43,7 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
   const mins = active ? Math.max(0, Math.round((Date.now() - (chain.activeSince as number)) / 60000)) : 0;
 
   const statusHtml = active
-    ? `<div class="status active">专注中 · 已 ${mins} 分 — 手机离手</div>`
+    ? `<div class="status active">专注中 · 已 <span id="elapsed">${mins}</span> 分 — 手机离手</div>`
       : booking.phase === 'booked'
         ? `<div class="status active">预约中 · 剩余 <span id="countdown">--:--</span></div>
            <div class="status" style="font-size:12px; margin-top:4px">锁屏场景请顺手设一个 15 分钟系统倒计时（页面后台时提醒不可靠）</div>`
