@@ -61,8 +61,10 @@ describe('score 派生（0-10 分制视图）', () => {
     expect(averageLast7(s, now)).toBeCloseTo(6.25);
   });
 
-  it('dayKey 输出当地时区 YYYY-MM-DD', () => {
-    const d = new Date(2026, 8, 16, 23, 30); // 2026-09-16 本地时间
-    expect(dayKey(d.getTime())).toBe('2026-09-16');
+  it('dayKey 以凌晨 4:00 为日界（二游式刷新）', () => {
+    expect(dayKey(new Date(2026, 8, 16, 23, 30).getTime())).toBe('2026-09-16'); // 深夜仍算当天
+    expect(dayKey(new Date(2026, 8, 17, 0, 30).getTime())).toBe('2026-09-16');  // 过了午夜但未过 4 点 → 前一天
+    expect(dayKey(new Date(2026, 8, 17, 3, 59).getTime())).toBe('2026-09-16');  // 4 点前最后一秒
+    expect(dayKey(new Date(2026, 8, 17, 4, 0).getTime())).toBe('2026-09-17');   // 4 点整 → 新的一天
   });
 });

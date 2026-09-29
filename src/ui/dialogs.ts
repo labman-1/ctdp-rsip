@@ -2,14 +2,19 @@
 // 零依赖、移动端友好、showModal 自带焦点陷阱。
 // 所有弹窗统一生命周期：按钮路径与 Esc/外部关闭路径都经 settled 防重入收口。
 
-import type { ChainEvent } from '../types';
-import { SCORE_ANCHORS } from '../logic/score';
+import type { AppState, ChainEvent } from '../types';
+import { SCORE_ANCHORS, scoreHistory } from '../logic/score';
 import { wireLifecycle } from './lifecycle';
+import { fmtTime } from './render';
 
 function el(html: string): HTMLDialogElement {
   const tpl = document.createElement('template');
   tpl.innerHTML = html.trim();
   return tpl.content.firstElementChild as HTMLDialogElement;
+}
+
+function esc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 /** 裁决弹窗 — 协议核心：疑似违规只允许二选一，不允许"这次算了"。
@@ -89,6 +94,31 @@ export function openScoreDialog(): Promise<ChainEvent | null> {
         valueEl().textContent = picked.toFixed(1);
       });
     });
+  });
+}
+
+/** 评分日志（只读回看）：日期时间 + 分数 + 一句话。旧 5 分制已按语义映射显示 */
+export function openScoreLogDialog(s: AppState): Promise<void> {
+  return new Promise((resolve) => {
+    const hist = [...scoreHistory(s)].reverse(); // 最新在上
+    const rows = hist.length === 0
+      ? '<div class="empty">（还没有评分记录）</div>'
+      : hist.map((e) =>
+          `<div class="row"><span class="t">${fmtTime(e.ts)}</span><span><b>${e.score.toFixed(1)}</b>${e.note ? ` · ${esc(e.note)}` : ''}</span></div>`).join('');
+    const dlg = el(`
+      <dialog>
+        <h3>评分日志</h3>
+        <div class="hint">${Object.entries(SCORE_ANCHORS).map(([k, v]) => `${k} ${v}`).join(' / ')}<br>同日多次取最后一次；凌晨 4:00 前的评分算前一天。</div>
+        <div class="itemlist">${rows}</div>
+        <div class="dlg-actions">
+          <button class="cancel" data-act="cancel">关闭</button>
+        </div>
+      </dialog>`);
+
+    const finish = wireLifecycle<void>(dlg, resolve);
+    dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => finish());
+    document.body.appendChild(dlg);
+    dlg.showModal();
   });
 }
 

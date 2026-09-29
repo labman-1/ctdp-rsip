@@ -150,8 +150,8 @@ export function openCollapseConfirm(s: AppState, v: PolicyView, id: string): Pro
   });
 }
 
-/** 详情弹窗。resolve：用户请求的后续动作（升级/加修正），由 main 继续开对应弹窗 */
-export function openPolicyDetail(s: AppState, id: string): Promise<'upgrade' | 'amend' | null> {
+/** 详情弹窗。resolve：用户请求的后续动作（编辑定义/升级/加修正），由 main 继续开对应弹窗 */
+export function openPolicyDetail(s: AppState, id: string): Promise<'edit' | 'upgrade' | 'amend' | null> {
   return new Promise((resolve) => {
     const def = s.policies[id];
     if (!def) return resolve(null);
@@ -175,15 +175,63 @@ export function openPolicyDetail(s: AppState, id: string): Promise<'upgrade' | '
         ${amends ? `<div class="detail-block"><b>修正条款</b>（判例提炼，仅显示修正）<br>${amends}</div>` : ''}
         ${upgrades ? `<div class="detail-block"><b>升级史</b><br>${upgrades}</div>` : ''}
         <div class="dlg-actions">
+          <button data-act="edit">编辑定义</button>
           <button data-act="upgrade">升级 lv</button>
           <button data-act="amend">追加修正条款</button>
           <button class="cancel" data-act="cancel">关闭</button>
         </div>
       </dialog>`);
 
-    const finish = wireLifecycle<'upgrade' | 'amend' | null>(dlg, resolve);
+    const finish = wireLifecycle<'edit' | 'upgrade' | 'amend' | null>(dlg, resolve);
+    dlg.querySelector('[data-act="edit"]')?.addEventListener('click', () => finish('edit'));
     dlg.querySelector('[data-act="upgrade"]')?.addEventListener('click', () => finish('upgrade'));
     dlg.querySelector('[data-act="amend"]')?.addEventListener('click', () => finish('amend'));
+    dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => finish(null));
+    show(dlg);
+  });
+}
+
+/** 编辑定义：改名/类型/要求/要点/装饰（不改 lv、修正史、创建时间）。
+ *  升级与修正走各自入口（凭据留痕）；定义文本的笔误修订直接生效。resolve：更新字段或 null */
+export function openEditPolicyDialog(s: AppState, id: string): Promise<Partial<PolicyDef> | null> {
+  return new Promise((resolve) => {
+    const def = s.policies[id];
+    if (!def) return resolve(null);
+    const opt = (k: PolicyKind) => (def.kind === k ? ' selected' : '');
+    const dlg = el(`
+      <dialog>
+        <h3>编辑定义 · ${esc2(def.name)}</h3>
+        <div class="form">
+          <input id="ep-name" value="${esc2(def.name)}" maxlength="30" />
+          <select id="ep-kind">
+            <option value="passive"${opt('passive')}>被动型（系统/环境自动执行）</option>
+            <option value="semi"${opt('semi')}>半被动型（锚定必然事件）</option>
+            <option value="active"${opt('active')}>主动型（to-do 式，慎用）</option>
+          </select>
+          <textarea id="ep-req" placeholder="要求全文">${esc2(def.requirement)}</textarea>
+          <input id="ep-brief" value="${esc2(def.brief ?? '')}" maxlength="60" placeholder="卡片要点（可选）" />
+          <textarea id="ep-detail" placeholder="详情装饰（可选）">${esc2(def.detail ?? '')}</textarea>
+        </div>
+        <div class="dlg-actions">
+          <button data-act="ok">保存</button>
+          <button class="cancel" data-act="cancel">取消</button>
+        </div>
+      </dialog>`);
+
+    const finish = wireLifecycle<Partial<PolicyDef> | null>(dlg, resolve);
+    const val = (sel: string) => (dlg.querySelector(sel) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value;
+    dlg.querySelector('[data-act="ok"]')?.addEventListener('click', () => {
+      const name = val('#ep-name').trim();
+      const requirement = val('#ep-req').trim();
+      if (!name || !requirement) return;
+      finish({
+        name,
+        kind: val('#ep-kind') as PolicyKind,
+        requirement,
+        brief: val('#ep-brief').trim() || undefined,
+        detail: val('#ep-detail').trim() || undefined,
+      });
+    });
     dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => finish(null));
     show(dlg);
   });

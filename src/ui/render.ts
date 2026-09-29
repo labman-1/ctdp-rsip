@@ -16,6 +16,7 @@ export interface Handlers {
   onFail(): void;
   onAmend(chainId: string): void;
   onScore(): void;
+  onScoreLog(): void;
   onExport(): void;
   onImport(): void;
 }
@@ -92,12 +93,11 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
     <div class="actions">${actionsHtml}</div>
 
     <div class="toolrow">
-      <span>${
-        today
-          ? `今日评分 ${today.score.toFixed(1)} · ${esc(today.note ?? '')}`
-          : '今日未评分'
-      }</span>
-      <button id="btn-score">评分</button>
+      <span>${today ? '今日已评分 ✓' : '今日未评分'}</span>
+      <div class="toolbtns">
+        <button id="btn-score">评分</button>
+        <button id="btn-score-log">日志</button>
+      </div>
     </div>
 
     <details class="section">
@@ -147,6 +147,7 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
   root.querySelector('#btn-done')?.addEventListener('click', h.onDone);
   root.querySelector('#btn-fail')?.addEventListener('click', h.onFail);
   root.querySelector('#btn-score')?.addEventListener('click', h.onScore);
+  root.querySelector('#btn-score-log')?.addEventListener('click', h.onScoreLog);
   root.querySelector('#btn-export')?.addEventListener('click', h.onExport);
   root.querySelector('#btn-import')?.addEventListener('click', h.onImport);
 

@@ -4,7 +4,7 @@
 // 协议 → 规则映射：
 //   policy_hand 隐含于 state.policies 定义（入手牌库不走事件）
 //   policy_join   ：上树，前置 = 当日凭证（该国策今日有 done）+ 全局每日配额 1
-//   policy_done   ：当日执行成功（凭证 + 内化天数，按自然日去重，崩塌不清零）
+//   policy_done   ：当日执行成功（凭证 + 内化天数，按自然日去重——凌晨 4:00 为日界，崩塌不清零）
 //   policy_fail   ：堆栈熄灭——该节点连同全部活树子孙回手牌，父子关系当场解除
 //   policy_revive ：从手牌重上（占配额，parent 只能是当前叶子或独立根——末梢原则）
 //   policy_upgrade：lv 变更历史（当前值在 state.policies）
@@ -14,6 +14,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import type { AppState } from '../types';
+import { dayKey } from './day';
 
 export interface PolicyNode {
   id: string;
@@ -35,12 +36,6 @@ export interface PolicyView {
   hand: string[];
   /** 今日 join+revive 次数（全局配额上限 1） */
   joinsToday: number;
-}
-
-function dayKey(ts: number): string {
-  const d = new Date(ts);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 export function policyView(s: AppState, now = Date.now()): PolicyView {

@@ -133,6 +133,11 @@ button.primary { border-color: var(--fg); }
   color: var(--dim);
 }
 .toolrow button { min-height: 44px; font-size: 14px; padding: 0 16px; }
+.toolrow .toolbtns { display: flex; gap: 10px; }
+/* 半透明 = 可点击但有前置条件（点按后弹窗说明原因），区别于完全不可用的 disabled */
+button.dim { opacity: 0.45; }
+dialog .itemlist { max-height: 50vh; overflow-y: auto; }
+dialog .itemlist .row b { color: var(--fg); font-variant-numeric: tabular-nums; }
 .footer {
   display: flex;
   justify-content: space-between;

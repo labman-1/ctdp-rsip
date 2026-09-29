@@ -38,7 +38,9 @@ function cardRow(s: AppState, v: PolicyView, id: string, depth: number): string 
       ${def.brief ? `<div class="policy-brief">${esc(def.brief)}</div>` : ''}
       <div class="policy-ops">
         <button class="mini" data-detail="${id}">详情</button>
-        ${!n.alive ? `<button class="mini" data-join="${id}" ${joinable.ok ? '' : 'disabled'} title="${esc(joinable.reason ?? '')}">上树</button>` : `<button class="mini danger" data-collapse="${id}">熄灭</button>`}
+        ${!n.alive
+          ? `<button class="mini${joinable.ok ? '' : ' dim'}" data-join="${id}">上树</button>`
+          : `<button class="mini danger" data-collapse="${id}">熄灭</button>`}
       </div>
     </div>`;
 }

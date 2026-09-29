@@ -4,6 +4,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import type { AppState } from '../types';
+import { dayKey } from './day';
 
 /** 0-10 分制锚点（2026-09-28 G1 修订：原 1/3/5 锚点按语义映射为 2/5/8）——评分刻度的唯一事实源 */
 export const SCORE_ANCHORS: Record<number, string> = {
@@ -34,12 +35,8 @@ export function scoreHistory(s: AppState): ScoreEntry[] {
   return out;
 }
 
-/** 当地时区的自然日 key（YYYY-MM-DD），评分按自然日去重提示 */
-export function dayKey(ts: number): string {
-  const d = new Date(ts);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
+/** 日 key 统一走 4:00 边界（凌晨睡的评分归属前一"天"），见 logic/day.ts */
+export { dayKey } from './day';
 
 export function todayScore(s: AppState, now = Date.now()): ScoreEntry | null {
   const today = dayKey(now);

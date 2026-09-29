@@ -3,13 +3,13 @@
 
 import { load, append, replaceWith, loadUiChain, saveUiChain, addPolicy, updatePolicy } from './state';
 import { bookingState } from './logic/chain';
-import { policyView } from './logic/policy';
+import { policyView, canJoin } from './logic/policy';
 import { render } from './ui/render';
 import { renderPolicy } from './ui/renderPolicy';
-import { openVerdictDialog, openScoreDialog, openImportConfirm } from './ui/dialogs';
+import { openVerdictDialog, openScoreDialog, openScoreLogDialog, openImportConfirm } from './ui/dialogs';
 import {
   openNewPolicyDialog, openSettleDialog, openJoinDialog,
-  openCollapseConfirm, openPolicyDetail, openUpgradeDialog, openAmendDialog,
+  openCollapseConfirm, openPolicyDetail, openUpgradeDialog, openAmendDialog, openEditPolicyDialog,
 } from './ui/policyDialogs';
 import { startClock } from './ui/clock';
 import { setupPwa } from './pwa';
@@ -139,6 +139,7 @@ const handlers = {
   },
   onExport: exportJson,
   onImport: importJson,
+  onScoreLog: () => { void openScoreLogDialog(S); },
   onSwitchTab: (t: 'chain' | 'policy') => { tab = t; rerender(); },
 };
 
@@ -163,6 +164,9 @@ const policyHandlers = {
   onJoin: async (id: string) => {
     if (!id) return;
     const v = policyView(S);
+    // 凭证/配额前置：不满足时点按钮直接说明原因（移动端无 hover，disabled 的 title 看不见）
+    const joinable = canJoin(v, id);
+    if (!joinable.ok) { alert(joinable.reason ?? '当前不可上树'); return; }
     const parent = await openJoinDialog(S, v, id);
     if (parent === undefined) return; // 取消
     const isRevive = v.nodes[id]?.onTreeSince != null; // 曾上过树 → 复活（末梢原则同适用）
@@ -185,7 +189,10 @@ const policyHandlers = {
   onDetail: async (id: string) => {
     if (!id) return;
     const action = await openPolicyDetail(S, id);
-    if (action === 'upgrade') {
+    if (action === 'edit') {
+      const patch = await openEditPolicyDialog(S, id);
+      if (patch) { S = updatePolicy(S, id, patch); rerender(); }
+    } else if (action === 'upgrade') {
       const cur = S.policies[id]?.level ?? 1;
       const up = await openUpgradeDialog(cur);
       if (up) {
