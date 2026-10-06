@@ -124,10 +124,10 @@ const handlers = {
   onScore: async () => {
     const e = await openScoreDialog();
     if (e) commit(e);
-    // 评分后的软引导：国策结算了吗（两个睡前仪式合一）
+    // 评分后的软引导：国策结算了吗（两个睡前仪式合一；passive 免结算，不数）
     if (e && Object.keys(S.policies).length > 0) {
       const v = policyView(S);
-      const unsettled = Object.values(v.nodes).filter((n) => n.alive && !n.doneToday).length;
+      const unsettled = Object.values(v.nodes).filter((n) => n.alive && !n.doneToday && n.kind !== 'passive').length;
       if (unsettled > 0) {
         setTimeout(() => {
           if (confirm(`还有 ${unsettled} 条在树国策今日未结算，现在结算吗？`)) {

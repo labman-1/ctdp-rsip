@@ -132,3 +132,71 @@ describe('canJoin 凭证与配额', () => {
     expect(canJoin(v, 'P2').ok).toBe(true);
   });
 });
+
+describe('被动国策：存续区间计数（免凭证 + 无日结算）', () => {
+  it('免凭证上树：passive 无需当日 done', () => {
+    const v = policyView(state([]), t);
+    expect(canJoin(v, 'P2').ok).toBe(true);
+    expect(v.nodes.P2.daysTotal).toBe(0); // 手牌无存续段
+  });
+
+  it('上树当天即第 1 天；3 天后 = 4（含上树日与今日，自动累计）', () => {
+    const v = policyView(state([
+      { ts: t, type: 'policy_join', policyId: 'P2', parent: null },
+    ]), t + 3 * 86400e3);
+    expect(v.nodes.P2.daysTotal).toBe(4);
+  });
+
+  it('熄灭清算存续段：[join, fail) 含头不含尾，熄灭日不计', () => {
+    const v = policyView(state([
+      { ts: t, type: 'policy_join', policyId: 'P2', parent: null },
+      { ts: t + 3 * 86400e3, type: 'policy_fail', policyId: 'P2' },
+    ]), t + 5 * 86400e3);
+    expect(v.nodes.P2.daysTotal).toBe(3);
+    expect(v.nodes.P2.alive).toBe(false);
+  });
+
+  it('多段求和：熄灭后重上，历史存续不清零（revive 不重复清算）', () => {
+    const v = policyView(state([
+      { ts: t, type: 'policy_join', policyId: 'P2', parent: null },
+      { ts: t + 2 * 86400e3, type: 'policy_fail', policyId: 'P2' },    // 段1 = 2 天
+      { ts: t + 3 * 86400e3, type: 'policy_revive', policyId: 'P2', parent: null },
+    ]), t + 5 * 86400e3);                                               // 段2 = 3 天
+    expect(v.nodes.P2.daysTotal).toBe(5);
+  });
+
+  it('连坐熄灭时被动子孙同样清算自己的段（以 fail 时刻封盘）', () => {
+    const v = policyView(state([
+      { ts: t, type: 'policy_done', policyId: 'P1' },
+      { ts: t, type: 'policy_join', policyId: 'P1', parent: null },
+      { ts: t, type: 'policy_join', policyId: 'P2', parent: 'P1' },
+      { ts: t + 2 * 86400e3, type: 'policy_fail', policyId: 'P1' },
+    ]), t + 5 * 86400e3);
+    expect(v.nodes.P1.alive).toBe(false);
+    expect(v.nodes.P2.daysTotal).toBe(2); // 连坐清算 [t, t+2d)
+  });
+
+  it('手动结算的 done 对 passive 无效：不被计数、不产生凭证', () => {
+    const v = policyView(state([
+      { ts: t, type: 'policy_done', policyId: 'P2' },
+      { ts: t, type: 'policy_done', policyId: 'P2' },
+    ]), t);
+    expect(v.nodes.P2.daysTotal).toBe(0);
+    expect(v.nodes.P2.doneToday).toBe(false);
+  });
+
+  it('日界 4:00：22:00 上树，次日 3:00 仍是第 1 天；4:00 后为第 2 天', () => {
+    const join = new Date(2026, 8, 29, 22, 0).getTime();
+    const s = state([{ ts: join, type: 'policy_join', policyId: 'P2', parent: null }]);
+    expect(policyView(s, new Date(2026, 8, 30, 3, 0).getTime()).nodes.P2.daysTotal).toBe(1);
+    expect(policyView(s, new Date(2026, 8, 30, 4, 0).getTime()).nodes.P2.daysTotal).toBe(2);
+  });
+
+  it('semi/active 计数模型不变：仍按 done 事件日去重（回归保护）', () => {
+    const v = policyView(state([
+      { ts: t, type: 'policy_done', policyId: 'P1' },
+      { ts: t + 26 * 3600e3, type: 'policy_done', policyId: 'P1' },
+    ]), t + 30 * 3600e3);
+    expect(v.nodes.P1.daysTotal).toBe(2);
+  });
+});

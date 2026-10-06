@@ -13,17 +13,21 @@
 // fail 连坐按"事件发生时的树结构"计算（正序扫描中维护父子边）。
 // ─────────────────────────────────────────────────────────────
 
-import type { AppState } from '../types';
-import { dayKey } from './day';
+import type { AppState, PolicyKind } from '../types';
+import { dayKey, daysBetween } from './day';
 
 export interface PolicyNode {
   id: string;
+  kind: PolicyKind;          // 定义副本：计数模型按类型分叉（见下）
   parent: string | null;      // 最近一次 join/revive 的父（手牌期为 null）
   alive: boolean;             // 在活树上
-  onTreeSince: number | null; // 最近一次上树时间
-  /** 内化进度条：累计执行天数（自然日去重，崩塌不清零，手牌期执行同样计入） */
+  onTreeSince: number | null; // 最近一次上树时间（熄灭不清空——main 以非空区分"曾上过树"）
+  /** 内化进度条，按 kind 分两种计数模型：
+   *  semi/active = done 事件按自然日去重（崩塌不清零，手牌期执行同样计入）；
+   *  passive = 存续区间天数自动累计（[join, fail) 含头不含尾；在树段含头含尾）——
+   *  被动国策无每日行为判定，"没有事件就没有判定"，不消费 done 事件。 */
   daysTotal: number;
-  /** 今日是否已结算（凭证存在） */
+  /** 今日是否已结算（凭证存在）；passive 恒 false 且无人消费 */
   doneToday: boolean;
   children: string[];
 }
@@ -42,7 +46,7 @@ export function policyView(s: AppState, now = Date.now()): PolicyView {
   const today = dayKey(now);
   const nodes: Record<string, PolicyNode> = {};
   for (const id of Object.keys(s.policies)) {
-    nodes[id] = { id, parent: null, alive: false, onTreeSince: null, daysTotal: 0, doneToday: false, children: [] };
+    nodes[id] = { id, kind: s.policies[id].kind, parent: null, alive: false, onTreeSince: null, daysTotal: 0, doneToday: false, children: [] };
   }
   const daySets = new Map<string, Set<string>>();
   let joinsToday = 0;
@@ -64,6 +68,11 @@ export function policyView(s: AppState, now = Date.now()): PolicyView {
       case 'policy_join':
       case 'policy_revive': {
         detach(e.policyId); // 防御：重复上树先解除旧边
+        // passive 防御清算：alive 仍为 true 的重复上树（缺对应 fail 的异常序列），
+        // 先把上一段存续期入账再重置段起点（合法 revive 走过 fail，alive=false，不触发）
+        if (n.kind === 'passive' && n.alive && n.onTreeSince !== null) {
+          n.daysTotal += daysBetween(n.onTreeSince, e.ts);
+        }
         n.parent = e.parent ?? null;
         n.alive = true;
         n.onTreeSince = e.ts;
@@ -72,6 +81,7 @@ export function policyView(s: AppState, now = Date.now()): PolicyView {
         break;
       }
       case 'policy_done': {
+        if (n.kind === 'passive') break; // 被动国策不消费日结算（历史手动 done 自然失效，区间计数接管）
         const set = daySets.get(e.policyId) ?? new Set<string>();
         const k = dayKey(e.ts);
         if (!set.has(k)) { set.add(k); n.daysTotal += 1; }
@@ -89,6 +99,11 @@ export function policyView(s: AppState, now = Date.now()): PolicyView {
           detach(cur);
           m.alive = false;
           m.doneToday = false;
+          // passive 清算当前存续段（[join, fail) 含头不含尾）；onTreeSince 故意不清——
+          // 它兼作"曾上过树"标记（main 据此区分 revive）
+          if (m.kind === 'passive' && m.onTreeSince !== null) {
+            m.daysTotal += daysBetween(m.onTreeSince, e.ts);
+          }
           stack.push(...m.children);
           m.children = [];
         }
@@ -103,6 +118,10 @@ export function policyView(s: AppState, now = Date.now()): PolicyView {
   const roots: string[] = [];
   for (const id of Object.keys(nodes)) {
     const n = nodes[id];
+    // passive 当前段实时累计（含上树日与今日）——打开 App 即自动更新，无需任何事件
+    if (n.kind === 'passive' && n.alive && n.onTreeSince !== null) {
+      n.daysTotal += daysBetween(n.onTreeSince, now) + 1;
+    }
     if (!n.alive) hand.push(id);
     else if (n.parent === null) roots.push(id);
   }
@@ -120,12 +139,13 @@ export function collapseList(view: PolicyView, id: string): string[] {
   return out;
 }
 
-/** 凭证制 + 配额：某国策当前能否上树/复活 */
+/** 凭证制 + 配额：某国策当前能否上树/复活。
+ *  passive 免凭证（"做到"=机制配置完成，新建即成立）；全局每日配额对所有类型生效。 */
 export function canJoin(view: PolicyView, id: string): { ok: boolean; reason?: string } {
   const n = view.nodes[id];
   if (!n) return { ok: false, reason: '国策不存在' };
   if (n.alive) return { ok: false, reason: '已在树上' };
-  if (!n.doneToday) return { ok: false, reason: '缺少当日凭证：先在今日结算中标记执行成功' };
+  if (n.kind !== 'passive' && !n.doneToday) return { ok: false, reason: '缺少当日凭证：先在今日结算中标记执行成功' };
   if (view.joinsToday >= 1) return { ok: false, reason: '今日配额已用（每天最多添加一个）' };
   return { ok: true };
 }

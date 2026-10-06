@@ -61,11 +61,12 @@ export function openNewPolicyDialog(): Promise<Omit<PolicyDef, 'createdAt'> | nu
   });
 }
 
-/** 今日结算：列出全部国策勾选"今天做到了"。resolve：要记 done 的 id 数组 */
+/** 今日结算：列出全部需日判定的国策勾选"今天做到了"（passive 不参与——存续自动计）。
+ *  resolve：要记 done 的 id 数组 */
 export function openSettleDialog(s: AppState): Promise<string[] | null> {
   return new Promise((resolve) => {
     const v = policyView(s);
-    const ids = Object.keys(s.policies);
+    const ids = Object.keys(s.policies).filter((id) => s.policies[id].kind !== 'passive');
     const rows = ids.map((id) => {
       const def = s.policies[id];
       const n = v.nodes[id];
@@ -77,8 +78,8 @@ export function openSettleDialog(s: AppState): Promise<string[] | null> {
     const dlg = el(`
       <dialog>
         <h3>今日结算（睡前巡逻）</h3>
-        <div class="hint">勾选今天做到了的国策。手牌期的执行同样计入内化天数。</div>
-        <div class="settle-list">${rows || '<div class="empty">（还没有国策）</div>'}</div>
+        <div class="hint">勾选今天做到了的国策。手牌期的执行同样计入内化天数；被动型不参与（存续自动计）。</div>
+        <div class="settle-list">${rows || '<div class="empty">（没有需要每日结算的国策——被动型在树即自动累计）</div>'}</div>
         <div class="dlg-actions">
           <button data-act="ok">记下</button>
           <button class="cancel" data-act="cancel">取消</button>

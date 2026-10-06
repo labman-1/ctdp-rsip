@@ -8,3 +8,10 @@ export function dayKey(ts: number): string {
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
+
+/** 两个时间戳之间的日历日差（b - a，"天"同样以 4:00 为界）。
+ *  被动国策的存续区间计数用它：daysBetween(join, fail) = 含头不含尾的存续天数。 */
+export function daysBetween(a: number, b: number): number {
+  const parse = (k: string) => Date.UTC(Number(k.slice(0, 4)), Number(k.slice(5, 7)) - 1, Number(k.slice(8, 10)));
+  return Math.round((parse(dayKey(b)) - parse(dayKey(a))) / 86400000);
+}

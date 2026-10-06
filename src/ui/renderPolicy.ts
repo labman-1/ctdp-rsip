@@ -32,7 +32,11 @@ function cardRow(s: AppState, v: PolicyView, id: string, depth: number): string 
           <span class="tag kind-${def.kind}">${KIND_LABEL[def.kind]}</span>
           <span class="tag">lv.${def.level}</span>
           <span class="tag">${n.daysTotal}天</span>
-          ${n.alive ? (n.doneToday ? '<span class="tag done">今日✓</span>' : '<span class="tag todo">今日未结算</span>') : ''}
+          ${n.alive
+            ? (def.kind === 'passive'
+                ? '<span class="tag kind-passive">在岗</span>'
+                : n.doneToday ? '<span class="tag done">今日✓</span>' : '<span class="tag todo">今日未结算</span>')
+            : ''}
         </span>
       </div>
       ${def.brief ? `<div class="policy-brief">${esc(def.brief)}</div>` : ''}
