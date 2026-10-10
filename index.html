@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#111111" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>链 · CTDP</title>
+    <script type="module" crossorigin>(function(){const t=document.createElement("link").relList;if(t&&t.supports&&t.supports("modulepreload"))return;for(const i of document.querySelectorAll('link[rel="modulepreload"]'))a(i);new MutationObserver(i=>{for(const o of i)if(o.type==="childList")for(const c of o.addedNodes)c.tagName==="LINK"&&c.rel==="modulepreload"&&a(c)}).observe(document,{childList:!0,subtree:!0});function n(i){const o={};return i.integrity&&(o.integrity=i.integrity),i.referrerPolicy&&(o.referrerPolicy=i.referrerPolicy),i.crossOrigin==="use-credentials"?o.credentials="include":i.crossOrigin==="anonymous"?o.credentials="omit":o.credentials="same-origin",o}function a(i){if(i.ep)return;i.ep=!0;const o=n(i);fetch(i.href,o)}})();const V="ctdp_v1";let ne=0;function ae(e){const t=Object.keys(e.policies).map(n=>Number(n.slice(1))||0);return`P${Math.max(ne,...t)+1}`}function ie(e,t){const n=ae(e),a={...e,policies:{...e.policies,[n]:{...t,createdAt:Date.now()}}};return O(a),a}function N(e,t,n){if(!e.policies[t])return e;const a={...e,policies:{...e.policies,[t]:{...e.policies[t],...n}}};return O(a),a}function I(){return B({version:1,chains:{C1:{name:"算法题（本业）",createdAt:Date.now()},C2:{name:"锻炼：校园跑/健身房 40min-1h",createdAt:Date.now()}},policies:{},events:[]})}function B(e){const t={...e.chains};t.C2===void 0&&(t.C2={name:"锻炼：校园跑/健身房 40min-1h",createdAt:Date.now()});for(const[n,a]of Object.entries(t)){if(n.endsWith("预约"))continue;const i=n+"预约";t[i]===void 0&&(t[i]={name:`${a.name} · 预约链`,createdAt:Date.now()})}return{...e,chains:t}}function oe(){try{const e=localStorage.getItem(V);if(e===null)return I();const t=JSON.parse(e);return t.version!==1||!Array.isArray(t.events)||typeof t.chains!="object"?I():typeof t.policies!="object"||t.policies===null?B({...t,policies:{}}):B(t)}catch{return I()}}function O(e){localStorage.setItem(V,JSON.stringify(e))}function E(e,...t){const n={...e,events:[...e.events,...t]};return O(n),n}const G="ctdp_ui_chain";function ce(e){const t=localStorage.getItem(G)??e;return t.endsWith("预约")?t.replace("预约",""):t}function se(e){localStorage.setItem(G,e)}function le(e){if(typeof e=="object"&&e!==null&&e.version===1&&Array.isArray(e.events)&&typeof e.chains=="object"){const t=e;return O(t),t}return null}const H=15*60*1e3,re=5*60*1e3;function x(e,t){return e.endsWith("预约")&&t==="booking"?"trigger":t}function R(e,t){const n=e.chains[t];if(!n)return null;const a=e.events.filter(l=>l.chain===t),i={id:t,name:n.name,length:0,activeSince:null,totalDone:0,scoutCount:0,lastFailAt:null};if(a.length===0)return i;let o=null;for(let l=a.length-1;l>=0;l--){const p=x(t,a[l].type);if(p==="trigger"||p==="done"||p==="fail"){o=p==="trigger"?a[l].ts:null;break}}let c=0;for(let l=a.length-1;l>=0&&x(t,a[l].type)!=="fail";l--)x(t,a[l].type)==="done"&&(c+=1);let s=0,u=0,r=null;for(const l of a)x(t,l.type)==="done"&&(s+=1),l.type==="scout"&&(u+=1),x(t,l.type)==="fail"&&(r=l.ts);return{id:t,name:n.name,length:c,activeSince:o,totalDone:s,scoutCount:u,lastFailAt:r}}function de(e){return e.events.filter(t=>t.type==="verdict"&&t.verdictText).map(t=>({ts:t.ts,text:t.verdictText,chain:t.chain}))}function j(e,t,n=Date.now()){const a=t+"预约";let i=null,o=!1;for(const s of e.events)s.chain===a&&s.type==="booking"?(i=s.ts,o=!1):i!==null&&!o&&(s.chain===t&&s.type==="trigger"&&s.ts<=i+H||s.chain===a&&(s.type==="fail"||s.type==="verdict"))&&(o=!0);if(i===null||o)return{phase:"none",bookingTs:null,deadline:null};const c=i+H;return n<c?{phase:"booked",bookingTs:i,deadline:c}:n<c+re?{phase:"due",bookingTs:i,deadline:c}:{phase:"overdue",bookingTs:i,deadline:c}}const ue=4*3600*1e3;function w(e){const t=new Date(e-ue),n=a=>String(a).padStart(2,"0");return`${t.getFullYear()}-${n(t.getMonth()+1)}-${n(t.getDate())}`}function _(e,t){const n=a=>Date.UTC(Number(a.slice(0,4)),Number(a.slice(5,7))-1,Number(a.slice(8,10)));return Math.round((n(w(t))-n(w(e)))/864e5)}function L(e,t=Date.now()){const n=w(t),a={};for(const r of Object.keys(e.policies))a[r]={id:r,kind:e.policies[r].kind,parent:null,alive:!1,onTreeSince:null,daysTotal:0,doneToday:!1,children:[]};const i=new Map;let o=0;const c=r=>{const l=a[r];l&&(l.parent&&a[l.parent]&&(a[l.parent].children=a[l.parent].children.filter(p=>p!==r)),l.parent=null)};for(const r of e.events){if(!r.policyId)continue;const l=a[r.policyId];if(l)switch(r.type){case"policy_join":case"policy_revive":{c(r.policyId),l.kind==="passive"&&l.alive&&l.onTreeSince!==null&&(l.daysTotal+=_(l.onTreeSince,r.ts)),l.parent=r.parent??null,l.alive=!0,l.onTreeSince=r.ts,l.parent&&a[l.parent]&&a[l.parent].children.push(r.policyId),w(r.ts)===n&&(o+=1);break}case"policy_done":{if(l.kind==="passive")break;const p=i.get(r.policyId)??new Set,h=w(r.ts);p.has(h)||(p.add(h),l.daysTotal+=1),i.set(r.policyId,p),h===n&&(l.doneToday=!0);break}case"policy_fail":{const p=[r.policyId];for(;p.length>0;){const h=p.pop(),y=a[h];y&&(c(h),y.alive=!1,y.doneToday=!1,y.kind==="passive"&&y.onTreeSince!==null&&(y.daysTotal+=_(y.onTreeSince,r.ts)),p.push(...y.children),y.children=[])}break}}}const s=[],u=[];for(const r of Object.keys(a)){const l=a[r];l.kind==="passive"&&l.alive&&l.onTreeSince!==null&&(l.daysTotal+=_(l.onTreeSince,t)+1),l.alive?l.parent===null&&u.push(r):s.push(r)}return{nodes:a,roots:u,hand:s,joinsToday:o}}function pe(e,t){const n=[],a=i=>{n.push(i);for(const o of e.nodes[i]?.children??[])a(o)};return a(t),n}function Q(e,t){const n=e.nodes[t];return n?n.alive?{ok:!1,reason:"已在树上"}:n.kind!=="passive"&&!n.doneToday?{ok:!1,reason:"缺少当日凭证：先在今日结算中标记执行成功"}:e.joinsToday>=1?{ok:!1,reason:"今日配额已用（每天最多添加一个）"}:{ok:!0}:{ok:!1,reason:"国策不存在"}}function ve(e,t){return(e.nodes[t]?.children.length??0)===0}const X={2:"后悔今天",5:"平静",8:"由衷满足"};function fe(e){return Math.round(((e-1)*1.5+2)*2)/2}function U(e){const t=[];for(const n of e.events)if(n.type==="score"&&n.score!==void 0){const a=n.scale===10?n.score:fe(n.score);t.push({ts:n.ts,score:a,note:n.note})}return t}function be(e,t=Date.now()){const n=w(t);let a=null;for(const i of U(e))w(i.ts)===n&&(a=i);return a}function ge(e,t=Date.now()){const n=t-6048e5,a=U(e).filter(i=>i.ts>=n);return a.length===0?null:a.reduce((i,o)=>i+o.score,0)/a.length}function D(e){return e.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}function T(e){const t=new Date(e),n=a=>String(a).padStart(2,"0");return`${n(t.getMonth()+1)}-${n(t.getDate())} ${n(t.getHours())}:${n(t.getMinutes())}`}const ye={trigger:"触发",done:"完成 +1",fail:"判失败 · 清零",verdict:"判例登记",score:"评分",booking:"预约",scout:"侦查"};function me(e,t,n,a){const i=Array.from(e.querySelectorAll("details")).map((v,q)=>v.open?q:-1).filter(v=>v>=0),o=R(t,a);if(!o){e.innerHTML="<p>状态损坏</p>";return}const c=Object.keys(t.chains).length>1,s=j(t,a),u=R(t,a+"预约"),r=o.activeSince!==null,l=r?Math.max(0,Math.round((Date.now()-o.activeSince)/6e4)):0,p=r?`<div class="status active">专注中 · 已 <span id="elapsed">${l}</span> 分 — 手机离手</div>`:s.phase==="booked"?`<div class="status active">预约中 · 剩余 <span id="countdown">--:--</span></div>
+           <div class="status" style="font-size:12px; margin-top:4px">锁屏场景请顺手设一个 15 分钟系统倒计时（页面后台时提醒不可靠）</div>`:s.phase==="due"?'<div class="status active">预约到期 · 宽限中 — 立即触发</div>':s.phase==="overdue"?'<div class="status" style="color:var(--danger)">预约失约 · 待裁决</div>':`<div class="status">未触发${u&&u.length>0?` · 预约链 #${u.length}`:""}${o.lastFailAt?` · 链于 ${T(o.lastFailAt)} 清零重来`:""}</div>`,h=r?`<button id="btn-trigger" disabled>触发</button>
+       <button id="btn-done">完成</button>
+       <button id="btn-fail" class="danger">失败</button>`:s.phase==="overdue"?'<button id="btn-booking-verdict" class="danger" style="grid-column: 1 / -1">失约裁决（下必为例）</button>':s.phase==="booked"||s.phase==="due"?`<button id="btn-trigger" class="primary" style="grid-column: span 2; font-weight:600">立即触发</button>
+           <button id="btn-booking-verdict" class="danger">失约裁决</button>`:`<button id="btn-trigger">触发</button>
+           <button id="btn-booking" ${s.phase==="none"?"":"disabled"}>预约</button>
+           <button id="btn-fail" class="danger" disabled>失败</button>`,y=be(t),F=ge(t),P=de(t),ee=[...t.events].reverse().slice(0,60);e.innerHTML=`
+    <div class="topbar">
+      <button id="btn-chain" class="chain-switch" title="点击切换链">${c?"‹ ":""}${D(o.name)}${c?" ›":""}</button>
+      <span>总节点 ${o.totalDone}</span>
+    </div>
+
+    <div class="hero">
+      <div class="num">${o.length}</div>
+      ${p}
+    </div>
+
+    ${r?"":`
+    <div class="scoutrow">
+      <span>侦查 ×${o.scoutCount} · 不进链长</span>
+      <button id="btn-scout" title="刚读完一道题、想清思路即点（5 分钟起步，零负担放弃；进了状态可顺势点正式触发）">侦查 +1</button>
+    </div>`}
+
+    <div class="actions">${h}</div>
+
+    <div class="toolrow">
+      <span>${y?"今日已评分 ✓":"今日未评分"}</span>
+      <div class="toolbtns">
+        <button id="btn-score">评分</button>
+        <button id="btn-score-log">日志</button>
+      </div>
+    </div>
+
+    <details class="section">
+      <summary><span>判例库</span><span>${P.length} 条</span></summary>
+      <div class="itemlist">${P.length===0?'<div class="row">（尚无判例 — 疑似违规时当场裁决登记）</div>':P.map(v=>`<div class="row"><span class="t">${T(v.ts)}</span><span>${D(v.text)}</span></div>`).join("")}</div>
+    </details>
+
+    <details class="section">
+      <summary><span>事件历史</span><span>${t.events.length} 条</span></summary>
+      <div class="itemlist">${ee.map(v=>{const q=v.type==="verdict"&&v.verdictText?`：${v.verdictText}`:v.type==="score"?` ${v.score}${v.note?` · ${v.note}`:""}`:v.note?`：${v.note}`:"",te=v.type==="done"&&v.chain?`<span class="amend" data-chain="${D(v.chain)}">补判</span>`:"";return`<div class="row"><span class="t">${T(v.ts)}</span><span>${ye[v.type]??v.type}${D(q)}</span>${te}</div>`}).join("")}</div>
+    </details>
+
+    <div class="footer">
+      <span class="weekavg">${F!==null?`近 7 天均分 ${F.toFixed(1)}`:""} <span class="ver">v0.1.0.29860699</span></span>
+      <div>
+        <button id="btn-export">导出</button>
+        <button id="btn-import">导入</button>
+      </div>
+    </div>
+    <nav class="tabbar">
+      <button class="tab active" id="tab-chain">链</button>
+      <button class="tab" id="tab-policy">国策</button>
+    </nav>
+  `,e.querySelector("#tab-policy")?.addEventListener("click",()=>n.onSwitchTab("policy")),e.querySelector("#btn-chain")?.addEventListener("click",n.onSwitchChain),e.querySelector("#btn-trigger")?.addEventListener("click",n.onTrigger),e.querySelector("#btn-booking")?.addEventListener("click",n.onBooking),e.querySelector("#btn-booking-verdict")?.addEventListener("click",n.onBookingVerdict),e.querySelectorAll(".amend").forEach(v=>v.addEventListener("click",()=>n.onAmend(v.dataset.chain??""))),e.querySelector("#btn-done")?.addEventListener("click",n.onDone),e.querySelector("#btn-fail")?.addEventListener("click",n.onFail),e.querySelector("#btn-scout")?.addEventListener("click",n.onScout),e.querySelector("#btn-score")?.addEventListener("click",n.onScore),e.querySelector("#btn-score-log")?.addEventListener("click",n.onScoreLog),e.querySelector("#btn-export")?.addEventListener("click",n.onExport),e.querySelector("#btn-import")?.addEventListener("click",n.onImport),e.querySelectorAll("details").forEach((v,q)=>{i.includes(q)&&(v.open=!0)})}const he={passive:"被动",semi:"半被动",active:"主动"};function J(e){return e.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}function Z(e,t,n,a){const i=e.policies[n],o=t.nodes[n];if(!i||!o)return"";const c=Q(t,n);return`
+    <div class="policy-card${o.alive?"":" inhand"}" style="margin-left:${a*18}px">
+      <div class="policy-main">
+        <span class="policy-name">${J(i.name)}</span>
+        <span class="policy-tags">
+          <span class="tag kind-${i.kind}">${he[i.kind]}</span>
+          <span class="tag">lv.${i.level}</span>
+          <span class="tag">${o.daysTotal}天</span>
+          ${o.alive?i.kind==="passive"?'<span class="tag kind-passive">在岗</span>':o.doneToday?'<span class="tag done">今日✓</span>':'<span class="tag todo">今日未结算</span>':""}
+        </span>
+      </div>
+      ${i.brief?`<div class="policy-brief">${J(i.brief)}</div>`:""}
+      <div class="policy-ops">
+        <button class="mini" data-detail="${n}">详情</button>
+        ${o.alive?`<button class="mini danger" data-collapse="${n}">熄灭</button>`:`<button class="mini${c.ok?"":" dim"}" data-join="${n}">上树</button>`}
+      </div>
+    </div>`}function ke(e,t){const n=[],a=(i,o)=>{n.push(Z(e,t,i,o));for(const c of t.nodes[i]?.children??[])a(c,o+1)};for(const i of t.roots)a(i,0);return n.join("")}function Se(e,t,n,a){if(a!=="policy")return;const i=L(t);e.innerHTML=`
+    <div class="topbar">
+      <span>国策树 · RSIP</span>
+      <span>今日配额 ${i.joinsToday>=1?"已用":"可用"}</span>
+    </div>
+
+    <div class="actions" style="margin-top:14px">
+      <button id="btn-settle">今日结算</button>
+      <button id="btn-new-policy">新建国策</button>
+    </div>
+
+    <div class="policy-section">
+      <div class="section-title">在树（${i.roots.length?$e(i):0}）</div>
+      ${i.roots.length?ke(t,i):'<div class="empty">（树为空 — 国策先入手牌，当日执行成功后方可上树）</div>'}
+    </div>
+
+    <div class="policy-section">
+      <div class="section-title">手牌（${i.hand.length}）</div>
+      ${i.hand.length?i.hand.map(o=>Z(t,i,o,0)).join(""):'<div class="empty">（无手牌）</div>'}
+    </div>
+
+    <div class="footer">
+      <span class="weekavg"><span class="ver">v0.1.0.29860699</span></span>
+      <span></span>
+    </div>
+    <nav class="tabbar">
+      <button class="tab" id="tab-chain">链</button>
+      <button class="tab active" id="tab-policy">国策</button>
+    </nav>
+  `,e.querySelector("#tab-chain")?.addEventListener("click",()=>n.onSwitchTab("chain")),e.querySelector("#btn-settle")?.addEventListener("click",n.onSettle),e.querySelector("#btn-new-policy")?.addEventListener("click",n.onNewPolicy),e.querySelectorAll("[data-join]").forEach(o=>o.addEventListener("click",()=>n.onJoin(o.dataset.join??""))),e.querySelectorAll("[data-collapse]").forEach(o=>o.addEventListener("click",()=>n.onCollapse(o.dataset.collapse??""))),e.querySelectorAll("[data-detail]").forEach(o=>o.addEventListener("click",()=>n.onDetail(o.dataset.detail??"")))}function $e(e){return Object.values(e.nodes).filter(t=>t.alive).length}function m(e,t){let n=!1;const a=i=>{n||(n=!0,e.close(),e.remove(),t(i))};return e.addEventListener("close",()=>{n||(n=!0,e.remove(),t(void 0))}),a}function A(e){const t=document.createElement("template");return t.innerHTML=e.trim(),t.content.firstElementChild}function we(e){return e.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}function M(e,t="now"){return new Promise(n=>{const a=t==="amend",i=A(`
+      <dialog>
+        <h3>下必为例 · ${a?"补判":"裁决"}</h3>
+        <div class="hint">${a?"结算后发现问题，向该链<b>追加</b>一条裁决事件，链状态自动更正，历史不变。<br>":""}描述本次疑似违规，然后二选一。<br>
+        判失败：链条清零，从 #1 重来。<br>
+        判允许：写入判例，同类情况从此永久适用。<br>
+        <b>不允许"这次先算了"。</b></div>
+        <textarea placeholder="发生了什么？例如：专注中刷了约 10 分钟手机"></textarea>
+        <div class="dlg-actions">
+          <button class="danger" data-act="fail">判失败（链清零）</button>
+          <button data-act="verdict">判允许（登记判例，链不断）</button>
+          <button class="cancel" data-act="cancel">${a?"不改了":"稍后再裁决"}</button>
+        </div>
+      </dialog>`),o=m(i,n),c=()=>i.querySelector("textarea").value.trim(),s=()=>({ts:Date.now(),chain:e});i.querySelector('[data-act="fail"]')?.addEventListener("click",()=>o({...s(),type:"fail",note:c()||void 0})),i.querySelector('[data-act="verdict"]')?.addEventListener("click",()=>{const u=c();if(!u){i.querySelector("textarea").focus();return}o({...s(),type:"verdict",verdictText:u})}),i.querySelector('[data-act="cancel"]')?.addEventListener("click",()=>o(null)),document.body.appendChild(i),i.showModal()})}function Le(){return new Promise(e=>{const t=A(`
+      <dialog>
+        <h3>睡前评分</h3>
+        <div class="hint">躺上床后回想今天。0–10 分，0.5 步进：${Object.entries(X).map(([c,s])=>`${c} ${s}`).join(" / ")}。评分本身就是一次复盘。</div>
+        <div class="score-slider">
+          <div class="score-value" id="score-value">5.0</div>
+          <input type="range" id="score-input" min="0" max="10" step="0.5" value="5" />
+          <div class="score-marks"><span>0</span><span>2</span><span>5</span><span>8</span><span>10</span></div>
+        </div>
+        <textarea placeholder="一句话（建议引用一个事实而非评判）：今天下午打了一个节点"></textarea>
+        <div class="dlg-actions">
+          <button data-act="ok">记下</button>
+          <button class="cancel" data-act="cancel">取消</button>
+        </div>
+      </dialog>`),n=m(t,e),a=()=>t.querySelector("#score-input"),i=()=>t.querySelector("#score-value");let o=5;t.querySelector('[data-act="ok"]')?.addEventListener("click",()=>{const c=t.querySelector("textarea").value.trim();n({ts:Date.now(),type:"score",score:o,scale:10,note:c||void 0})}),t.querySelector('[data-act="cancel"]')?.addEventListener("click",()=>n(null)),document.body.appendChild(t),t.showModal(),requestAnimationFrame(()=>{a().addEventListener("input",()=>{o=Number(a().value),i().textContent=o.toFixed(1)})})})}function Ee(e){return new Promise(t=>{const n=[...U(e)].reverse(),a=n.length===0?'<div class="empty">（还没有评分记录）</div>':n.map(c=>`<div class="row"><span class="t">${T(c.ts)}</span><span><b>${c.score.toFixed(1)}</b>${c.note?` · ${we(c.note)}`:""}</span></div>`).join(""),i=A(`
+      <dialog>
+        <h3>评分日志</h3>
+        <div class="hint">${Object.entries(X).map(([c,s])=>`${c} ${s}`).join(" / ")}<br>同日多次取最后一次；凌晨 4:00 前的评分算前一天。</div>
+        <div class="itemlist">${a}</div>
+        <div class="dlg-actions">
+          <button class="cancel" data-act="cancel">关闭</button>
+        </div>
+      </dialog>`),o=m(i,t);i.querySelector('[data-act="cancel"]')?.addEventListener("click",()=>o()),document.body.appendChild(i),i.showModal()})}function qe(e){return new Promise(t=>{const n=A(`
+      <dialog>
+        <h3>导入备份</h3>
+        <div class="hint">将用备份文件（${e} 条事件）<b>整体替换</b>当前全部数据，此操作不可撤销。继续？</div>
+        <div class="dlg-actions">
+          <button data-act="ok">替换</button>
+          <button class="cancel" data-act="cancel">取消</button>
+        </div>
+      </dialog>`);let a=!1;const i=o=>{a||(a=!0,n.close(),n.remove(),t(o))};n.addEventListener("close",()=>i(!1)),n.querySelector('[data-act="ok"]')?.addEventListener("click",()=>i(!0)),n.querySelector('[data-act="cancel"]')?.addEventListener("click",()=>i(!1)),document.body.appendChild(n),n.showModal()})}function S(e){const t=document.createElement("template");return t.innerHTML=e.trim(),t.content.firstElementChild}function $(e){document.body.appendChild(e),e.showModal()}function xe(){return new Promise(e=>{const t=S(`
+      <dialog>
+        <h3>新建国策（入手牌）</h3>
+        <div class="hint">三道筛自查：是被动/半被动吗？最摆烂的一天能活吗？判定标准一句话说得清吗？</div>
+        <div class="form">
+          <input id="np-name" placeholder="名称（如：夜幕降临）" maxlength="30" />
+          <select id="np-kind">
+            <option value="passive">被动型（系统/环境自动执行，想失败都难）</option>
+            <option value="semi" selected>半被动型（锚定必然事件，如"躺上床后…"）</option>
+            <option value="active">主动型（to-do 式，慎用）</option>
+          </select>
+          <textarea id="np-req" placeholder="要求全文（判定标准一句话说清）"></textarea>
+          <input id="np-brief" placeholder="卡片要点（可选，列表显示）" maxlength="60" />
+          <textarea id="np-detail" placeholder="详情装饰（可选：注脚/emoji/图片URL——只存 URL 不存图片本体）"></textarea>
+        </div>
+        <div class="dlg-actions">
+          <button data-act="ok">入手牌</button>
+          <button class="cancel" data-act="cancel">取消</button>
+        </div>
+      </dialog>`),n=m(t,e),a=i=>t.querySelector(i).value;t.querySelector('[data-act="ok"]')?.addEventListener("click",()=>{const i=a("#np-name").trim(),o=a("#np-req").trim();!i||!o||n({name:i,kind:a("#np-kind"),requirement:o,level:1,brief:a("#np-brief").trim()||void 0,detail:a("#np-detail").trim()||void 0})}),t.querySelector('[data-act="cancel"]')?.addEventListener("click",()=>n(null)),$(t)})}function De(e){return new Promise(t=>{const n=L(e),i=Object.keys(e.policies).filter(s=>e.policies[s].kind!=="passive").map(s=>{const u=e.policies[s],r=n.nodes[s];return`<label class="settle-row">
+        <input type="checkbox" data-id="${s}" ${r?.doneToday?"checked":""} />
+        <span>${g(u.name)}${r?.alive?"":"（手牌）"} · ${r?.daysTotal??0}天</span>
+      </label>`}).join(""),o=S(`
+      <dialog>
+        <h3>今日结算（睡前巡逻）</h3>
+        <div class="hint">勾选今天做到了的国策。手牌期的执行同样计入内化天数；被动型不参与（存续自动计）。</div>
+        <div class="settle-list">${i||'<div class="empty">（没有需要每日结算的国策——被动型在树即自动累计）</div>'}</div>
+        <div class="dlg-actions">
+          <button data-act="ok">记下</button>
+          <button class="cancel" data-act="cancel">取消</button>
+        </div>
+      </dialog>`),c=m(o,t);o.querySelector('[data-act="ok"]')?.addEventListener("click",()=>{const s=Array.from(o.querySelectorAll("input[data-id]:checked")).map(u=>u.dataset.id);c(s)}),o.querySelector('[data-act="cancel"]')?.addEventListener("click",()=>c(null)),$(o)})}function Te(e,t,n){return new Promise(a=>{const o=['<label class="settle-row"><input type="radio" name="parent" value="" checked /><span>独立根</span></label>',...Object.values(t.nodes).filter(u=>u.alive&&u.id!==n&&ve(t,u.id)).map(u=>`<label class="settle-row"><input type="radio" name="parent" value="${u.id}" /><span>挂在 ${g(e.policies[u.id]?.name??u.id)} 之下（末梢）</span></label>`)].join(""),c=S(`
+      <dialog>
+        <h3>上树 · ${g(e.policies[n]?.name??n)}</h3>
+        <div class="hint">末梢原则：只能挂当前叶子之下或独立根（重上不从原位，从底层重来）。</div>
+        <div class="settle-list">${o}</div>
+        <div class="dlg-actions">
+          <button data-act="ok">上树</button>
+          <button class="cancel" data-act="cancel">取消</button>
+        </div>
+      </dialog>`),s=m(c,a);c.querySelector('[data-act="ok"]')?.addEventListener("click",()=>{const u=c.querySelector('input[name="parent"]:checked');s(u?.value===""?null:u?.value)}),c.querySelector('[data-act="cancel"]')?.addEventListener("click",()=>s(void 0)),$(c)})}function je(e,t,n){return new Promise(a=>{const i=pe(t,n),o=i.map(u=>`【${e.policies[u]?.name??u}】`).join("、"),c=S(`
+      <dialog>
+        <h3>堆栈熄灭 · 确认</h3>
+        <div class="hint">将同时熄灭：${g(o)}${i.length>1?"<br><b>子孙连坐，瞬间损失多日积累。</b>":""}<br>
+        熄灭 = 回手牌（内化天数保留），重新上树只能从末梢。也可先裁决：这次违例是否其实"判允许"（记判例，不熄灭）？</div>
+        <div class="dlg-actions">
+          <button class="danger" data-act="ok">确认熄灭（${i.length} 个节点）</button>
+          <button class="cancel" data-act="cancel">再想想</button>
+        </div>
+      </dialog>`),s=m(c,a);c.querySelector('[data-act="ok"]')?.addEventListener("click",()=>s(!0)),c.querySelector('[data-act="cancel"]')?.addEventListener("click",()=>s(!1)),$(c)})}function Ce(e,t){return new Promise(n=>{const a=e.policies[t];if(!a)return n(null);const o=L(e).nodes[t],c=e.events.filter(p=>p.type==="policy_upgrade"&&p.policyId===t).map(p=>`<div class="row"><span class="t">${new Date(p.ts).toLocaleDateString()}</span><span>→ lv.${p.newLevel}${p.note?` · ${g(p.note)}`:""}</span></div>`).join(""),s=(a.amendments??[]).map(p=>`<div class="row"><span class="t">${new Date(p.date).toLocaleDateString()}</span><span>${g(p.text)}</span></div>`).join(""),u={passive:"被动型",semi:"半被动型",active:"主动型"},r=S(`
+      <dialog>
+        <h3>${g(a.name)} · lv.${a.level}</h3>
+        <div class="hint">${u[a.kind]} · ${o?.daysTotal??0} 天 · ${o?.alive?o.parent?"树上（有父）":"树上（独立根）":"手牌"} · 建于 ${new Date(a.createdAt).toLocaleDateString()}</div>
+        <div class="detail-block"><b>要求</b><br>${g(a.requirement)}</div>
+        ${a.detail?`<div class="detail-block detail-deco">${Ne(a.detail)}</div>`:""}
+        ${s?`<div class="detail-block"><b>修正条款</b>（判例提炼，仅显示修正）<br>${s}</div>`:""}
+        ${c?`<div class="detail-block"><b>升级史</b><br>${c}</div>`:""}
+        <div class="dlg-actions">
+          <button data-act="edit">编辑定义</button>
+          <button data-act="upgrade">升级 lv</button>
+          <button data-act="amend">追加修正条款</button>
+          <button class="cancel" data-act="cancel">关闭</button>
+        </div>
+      </dialog>`),l=m(r,n);r.querySelector('[data-act="edit"]')?.addEventListener("click",()=>l("edit")),r.querySelector('[data-act="upgrade"]')?.addEventListener("click",()=>l("upgrade")),r.querySelector('[data-act="amend"]')?.addEventListener("click",()=>l("amend")),r.querySelector('[data-act="cancel"]')?.addEventListener("click",()=>l(null)),$(r)})}function Oe(e,t){return new Promise(n=>{const a=e.policies[t];if(!a)return n(null);const i=u=>a.kind===u?" selected":"",o=S(`
+      <dialog>
+        <h3>编辑定义 · ${g(a.name)}</h3>
+        <div class="form">
+          <input id="ep-name" value="${g(a.name)}" maxlength="30" />
+          <select id="ep-kind">
+            <option value="passive"${i("passive")}>被动型（系统/环境自动执行）</option>
+            <option value="semi"${i("semi")}>半被动型（锚定必然事件）</option>
+            <option value="active"${i("active")}>主动型（to-do 式，慎用）</option>
+          </select>
+          <textarea id="ep-req" placeholder="要求全文">${g(a.requirement)}</textarea>
+          <input id="ep-brief" value="${g(a.brief??"")}" maxlength="60" placeholder="卡片要点（可选）" />
+          <textarea id="ep-detail" placeholder="详情装饰（可选）">${g(a.detail??"")}</textarea>
+        </div>
+        <div class="dlg-actions">
+          <button data-act="ok">保存</button>
+          <button class="cancel" data-act="cancel">取消</button>
+        </div>
+      </dialog>`),c=m(o,n),s=u=>o.querySelector(u).value;o.querySelector('[data-act="ok"]')?.addEventListener("click",()=>{const u=s("#ep-name").trim(),r=s("#ep-req").trim();!u||!r||c({name:u,kind:s("#ep-kind"),requirement:r,brief:s("#ep-brief").trim()||void 0,detail:s("#ep-detail").trim()||void 0})}),o.querySelector('[data-act="cancel"]')?.addEventListener("click",()=>c(null)),$(o)})}function Ae(e){return new Promise(t=>{const n=S(`
+      <dialog>
+        <h3>升级（lv.${e} → ?）</h3>
+        <div class="hint">可升级国策：升级凭证据不凭雄心（如"数日实践成功"）。支持降级（失败回退，不算熄灭）。</div>
+        <div class="form">
+          <input id="up-level" type="number" min="1" max="9" value="${e+1}" />
+          <textarea id="up-note" placeholder="依据（可选）：如 lv.1 连续 7 天无违例"></textarea>
+        </div>
+        <div class="dlg-actions">
+          <button data-act="ok">记下</button>
+          <button class="cancel" data-act="cancel">取消</button>
+        </div>
+      </dialog>`),a=m(n,t);n.querySelector('[data-act="ok"]')?.addEventListener("click",()=>{const i=Number(n.querySelector("#up-level").value);if(!Number.isFinite(i)||i<1)return;const o=n.querySelector("#up-note").value.trim();a({level:i,note:o||void 0})}),n.querySelector('[data-act="cancel"]')?.addEventListener("click",()=>a(null)),$(n)})}function Pe(){return new Promise(e=>{const t=S(`
+      <dialog>
+        <h3>追加修正条款</h3>
+        <div class="hint">判例的成文法化：只写修正后的规则，不写判例原文——但每条修正背后必须对应一个真实裁决。</div>
+        <textarea id="am-text" placeholder="如：23:00 后接工作电话属允许（永久）"></textarea>
+        <div class="dlg-actions">
+          <button data-act="ok">记下</button>
+          <button class="cancel" data-act="cancel">取消</button>
+        </div>
+      </dialog>`),n=m(t,e);t.querySelector('[data-act="ok"]')?.addEventListener("click",()=>{const a=t.querySelector("#am-text").value.trim();a&&n(a)}),t.querySelector('[data-act="cancel"]')?.addEventListener("click",()=>n(null)),$(t)})}function g(e){return e.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}function Ne(e){return g(e).replace(/(https?:\/\/\S+\.(png|jpe?g|gif|webp))/gi,'<img src="$1" alt="" loading="lazy" />').replace(/\n/g,"<br>")}const W=typeof document<"u"?document.title:"链 · CTDP";function Ie(e){let t=j(e.getState(),e.getCurrentId()).phase,n=!1;setInterval(()=>{const a=j(e.getState(),e.getCurrentId());if(a.phase!==t){t=a.phase,e.rerender(),a.phase==="due"?e.notify("预约到期","宽限 5 分钟内立即触发 — 链 · CTDP"):a.phase==="overdue"?e.notify("预约失约","打开页面完成下必为例裁决"):a.phase==="none"&&(document.title=W);return}(a.phase==="due"||a.phase==="overdue")&&(n=!n,document.title=n?"⚠ 预约待处理":W);const i=document.getElementById("countdown");if(i&&a.deadline!==null){const c=Math.max(0,Math.ceil((a.deadline-Date.now())/1e3)),s=Math.floor(c/60),u=String(c%60).padStart(2,"0");i.textContent=`${s}:${u}`}const o=document.getElementById("elapsed");if(o){const c=R(e.getState(),e.getCurrentId());c?.activeSince!=null&&(o.textContent=String(Math.floor((Date.now()-c.activeSince)/6e4)))}},1e3)}function K(e){const t=document.createElement("canvas");t.width=e,t.height=e;const n=t.getContext("2d");return n?(n.fillStyle="#101010",n.fillRect(0,0,e,e),n.fillStyle="#e8e8e8",n.font=`bold ${e*.55}px system-ui, "Microsoft YaHei", sans-serif`,n.textAlign="center",n.textBaseline="middle",n.fillText("链",e/2,e/2+e*.03),t.toDataURL("image/png")):""}function _e(){try{"serviceWorker"in navigator&&location.protocol.startsWith("http")&&navigator.serviceWorker.register("./sw.js")}catch{}try{const e=K(192),t=K(512),n={name:"链 · CTDP",short_name:"链",start_url:".",display:"standalone",background_color:"#101010",theme_color:"#101010",icons:[{src:e,sizes:"192x192",type:"image/png"},{src:t,sizes:"512x512",type:"image/png"}]},a=URL.createObjectURL(new Blob([JSON.stringify(n)],{type:"application/json"})),i=document.createElement("link");i.rel="manifest",i.href=a,document.head.appendChild(i);const o=document.createElement("link");o.rel="apple-touch-icon",o.href=e,document.head.appendChild(o)}catch{}}const Y=document.getElementById("app");let d=oe(),f=ce("C1");d.chains[f]||(f=Object.keys(d.chains)[0]??"C1");let C="chain";function k(e){d=E(d,e),b()}function b(){C==="policy"?Se(Y,d,z,C):me(Y,d,Ue,f)}function Me(e,t){try{typeof Notification<"u"&&Notification.permission==="granted"&&new Notification(e,{body:t,tag:"ctdp-booking"})}catch{}}function Be(){const e=new Date,t=o=>String(o).padStart(2,"0"),n=`ctdp_${e.getFullYear()}-${t(e.getMonth()+1)}-${t(e.getDate())}.json`,a=new Blob([JSON.stringify(d,null,2)],{type:"application/json"}),i=document.createElement("a");i.href=URL.createObjectURL(a),i.download=n,i.click(),URL.revokeObjectURL(i.href)}function Re(){const e=document.createElement("input");e.type="file",e.accept="application/json,.json",e.onchange=async()=>{const t=e.files?.[0];if(t)try{const n=JSON.parse(await t.text());if(!Array.isArray(n?.events)){alert("文件结构不符");return}if(await qe(n.events.length)){const a=le(n);a?(d=a,d.chains[f]||(f=Object.keys(d.chains)[0]??"C1"),b()):alert("数据校验失败，未替换")}}catch{alert("无法解析该文件")}},e.click()}const Ue={onSwitchChain:()=>{const e=Object.keys(d.chains).filter(t=>!t.endsWith("预约"));e.length<2||(f=e[(e.indexOf(f)+1)%e.length],se(f),b())},onTrigger:()=>{const e=j(d,f);e.phase==="booked"||e.phase==="due"?(d=E(d,{ts:Date.now(),type:"trigger",chain:f},{ts:Date.now(),type:"done",chain:f+"预约"}),b()):k({ts:Date.now(),type:"trigger",chain:f})},onBooking:()=>{typeof Notification<"u"&&Notification.permission==="default"&&Notification.requestPermission(),k({ts:Date.now(),type:"booking",chain:f+"预约"})},onBookingVerdict:async()=>{const e=await M(f+"预约");e&&k(e)},onDone:()=>k({ts:Date.now(),type:"done",chain:f}),onFail:async()=>{const e=await M(f);e&&k(e)},onScout:()=>k({ts:Date.now(),type:"scout",chain:f}),onAmend:async e=>{if(!e)return;const t=await M(e,"amend");t&&k(t)},onScore:async()=>{const e=await Le();if(e&&k(e),e&&Object.keys(d.policies).length>0){const t=L(d),n=Object.values(t.nodes).filter(a=>a.alive&&!a.doneToday&&a.kind!=="passive").length;n>0&&setTimeout(()=>{confirm(`还有 ${n} 条在树国策今日未结算，现在结算吗？`)&&z.onSettle()},200)}},onExport:Be,onImport:Re,onScoreLog:()=>{Ee(d)},onSwitchTab:e=>{C=e,b()}},z={onSwitchTab:e=>{C=e,b()},onNewPolicy:async()=>{const e=await xe();e&&(d=ie(d,e),b())},onSettle:async()=>{const e=await De(d);if(!e)return;const t=L(d),n=e.filter(a=>!t.nodes[a]?.doneToday);if(n.length>0){const a=n.map(i=>({ts:Date.now(),type:"policy_done",policyId:i}));d=E(d,...a),b()}},onJoin:async e=>{if(!e)return;const t=L(d),n=Q(t,e);if(!n.ok){alert(n.reason??"当前不可上树");return}const a=await Te(d,t,e);if(a===void 0)return;const i=t.nodes[e]?.onTreeSince!=null;d=E(d,{ts:Date.now(),type:i?"policy_revive":"policy_join",policyId:e,parent:a}),b()},onCollapse:async e=>{if(!e)return;const t=L(d);await je(d,t,e)&&(d=E(d,{ts:Date.now(),type:"policy_fail",policyId:e}),b())},onDetail:async e=>{if(!e)return;const t=await Ce(d,e);if(t==="edit"){const n=await Oe(d,e);n&&(d=N(d,e,n),b())}else if(t==="upgrade"){const n=d.policies[e]?.level??1,a=await Ae(n);a&&(d=E(d,{ts:Date.now(),type:"policy_upgrade",policyId:e,newLevel:a.level,note:a.note}),d=N(d,e,{level:a.level}),b())}else if(t==="amend"){const n=await Pe();if(n){const i=[...d.policies[e].amendments??[],{text:n,date:Date.now()}];d=N(d,e,{amendments:i}),b()}}}};b();_e();Ie({getState:()=>d,getCurrentId:()=>f,rerender:b,notify:Me});</script>
+    <style rel="stylesheet" crossorigin>:root{--bg: #101010;--fg: #e8e8e8;--dim: #8f8f8f;--line: #2a2a2a;--danger: #c07070;--radius: 10px}*{box-sizing:border-box;margin:0;padding:0}html,body{background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,PingFang SC,Microsoft YaHei,sans-serif;-webkit-font-smoothing:antialiased}#app{max-width:460px;margin:0 auto;padding:max(16px,env(safe-area-inset-top)) 20px 40px}.topbar{display:flex;justify-content:space-between;align-items:baseline;color:var(--dim);font-size:13px;padding:6px 2px 14px;border-bottom:1px solid var(--line)}.chain-switch{border:none;background:transparent;color:var(--dim);font-size:13px;min-height:32px;padding:0 4px;cursor:pointer;font-family:inherit}.chain-switch:active{background:transparent}.hero{text-align:center;padding:34px 0 10px}.hero .num{font-size:clamp(88px,28vw,176px);font-weight:700;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}.hero .status{color:var(--dim);font-size:14px;margin-top:10px}.hero .status.active{color:var(--fg)}.scoutrow{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:13px;color:var(--dim)}.scoutrow button{min-height:36px;font-size:13px;padding:0 14px;color:var(--dim)}.actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:22px 0 8px}button{appearance:none;border:1px solid var(--line);background:transparent;color:var(--fg);border-radius:var(--radius);font-size:16px;min-height:52px;transition:background-color .15s,opacity .15s;cursor:pointer;font-family:inherit}button:enabled:active{background:#1e1e1e}button:disabled{opacity:.25;cursor:default}button.danger{color:var(--danger);border-color:#3a2626}button.primary{border-color:var(--fg)}.section{margin-top:26px}.section>summary{color:var(--dim);font-size:14px;padding:10px 2px;border-top:1px solid var(--line);cursor:pointer;list-style:none;display:flex;justify-content:space-between}.section>summary::-webkit-details-marker{display:none}.itemlist{font-size:13px;color:var(--dim);line-height:1.6;padding:4px 2px 10px}.itemlist .row{display:flex;gap:10px;padding:3px 0;align-items:baseline}.itemlist .row .t{flex-shrink:0;font-variant-numeric:tabular-nums}.itemlist .row .amend{margin-left:auto;color:var(--dim);font-size:12px;text-decoration:underline;cursor:pointer;flex-shrink:0}.itemlist .row .amend:active{color:var(--fg)}.toolrow{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:12px 2px;font-size:14px;color:var(--dim)}.toolrow button{min-height:44px;font-size:14px;padding:0 16px}.toolrow .toolbtns{display:flex;gap:10px}button.dim{opacity:.45}dialog .itemlist{max-height:50vh;overflow-y:auto}dialog .itemlist .row b{color:var(--fg);font-variant-numeric:tabular-nums}.footer{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:14px;margin-top:26px}.footer button{min-height:44px;font-size:13px;padding:0 14px;color:var(--dim)}.weekavg{font-size:13px;color:var(--dim)}.weekavg .ver{font-size:10px;opacity:.6}dialog{background:#161616;color:var(--fg);border:1px solid var(--line);border-radius:var(--radius);padding:20px;width:min(92vw,380px)}dialog::backdrop{background:#000000a6}dialog h3{font-size:15px;font-weight:600;margin-bottom:6px}dialog .hint{font-size:12px;color:var(--dim);margin-bottom:14px;line-height:1.5}dialog textarea{width:100%;background:#101010;border:1px solid var(--line);border-radius:8px;color:var(--fg);font-family:inherit;font-size:14px;padding:10px;min-height:64px;resize:vertical}dialog .dlg-actions{display:grid;gap:10px;margin-top:14px}dialog .dlg-actions button{min-height:48px}dialog .cancel{border:none;color:var(--dim);min-height:36px;font-size:13px}.tabbar{position:fixed;bottom:0;left:50%;transform:translate(-50%);width:min(100%,460px);display:grid;grid-template-columns:1fr 1fr;background:#101010eb;backdrop-filter:blur(8px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:10}.tabbar .tab{min-height:48px;border:none;border-radius:0;color:var(--dim);font-size:15px}.tabbar .tab.active{color:var(--fg);border-top:2px solid var(--fg)}#app{padding-bottom:72px}.policy-section{margin-top:20px}.section-title{color:var(--dim);font-size:13px;padding:8px 2px;border-top:1px solid var(--line)}.policy-card{border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;margin:8px 0;position:relative}.policy-card.inhand{border-style:dashed;opacity:.85}.policy-main{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline}.policy-name{font-size:15px;font-weight:600}.policy-tags{display:flex;gap:6px;flex-wrap:wrap}.tag{font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:4px;padding:1px 6px}.tag.done{color:#7aa87a;border-color:#2c3a2c}.tag.todo{color:var(--danger);border-color:#3a2626}.tag.kind-passive{color:#7a9aa8;border-color:#2c353a}.policy-brief{color:var(--dim);font-size:12px;margin-top:4px}.policy-ops{position:absolute;top:8px;right:10px;display:flex;gap:6px}button.mini{min-height:30px;font-size:12px;padding:0 10px;color:var(--dim)}.empty{color:var(--dim);font-size:13px;padding:10px 2px}.form{display:grid;gap:10px}.form input,.form select,.form textarea{background:#101010;border:1px solid var(--line);border-radius:8px;color:var(--fg);font-family:inherit;font-size:14px;padding:10px}.form textarea{min-height:56px;resize:vertical}.settle-list{display:grid;gap:8px;max-height:46vh;overflow-y:auto}.settle-row{display:flex;gap:10px;align-items:center;font-size:14px;border:1px solid var(--line);border-radius:8px;padding:9px 10px;cursor:pointer}.settle-row input{accent-color:var(--fg)}.detail-block{border-top:1px solid var(--line);margin-top:10px;padding-top:8px;font-size:13px;line-height:1.6;color:var(--dim)}.detail-block b{color:var(--fg);font-size:12px}.detail-block .row{display:flex;gap:8px;padding:2px 0}.detail-block .t{flex-shrink:0;font-variant-numeric:tabular-nums}.detail-deco img{max-width:100%;border-radius:8px;margin-top:6px}.score-slider{margin:8px 0 12px}.score-slider .score-value{font-size:40px;font-weight:700;text-align:center;font-variant-numeric:tabular-nums;margin-bottom:6px}.score-slider input[type=range]{width:100%;accent-color:var(--fg);height:32px}.score-slider .score-marks{display:flex;justify-content:space-between;font-size:11px;color:var(--dim)}</style>
+  </head>
+  <body>
+    <div id="app"></div>
+  </body>
+</html>
