@@ -116,6 +116,7 @@ const handlers = {
     const e = await openVerdictDialog(currentId);
     if (e) commit(e);
   },
+  onScout: () => commit({ ts: Date.now(), type: 'scout', chain: currentId }),
   onAmend: async (chainId: string) => {
     if (!chainId) return;
     const e = await openVerdictDialog(chainId, 'amend');

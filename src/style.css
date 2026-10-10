@@ -66,6 +66,17 @@ html, body {
 }
 .hero .status.active { color: var(--fg); }
 
+/* ── 侦查行（轻承诺：视觉重量低于下方主操作键） ── */
+.scoutrow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--dim);
+}
+.scoutrow button { min-height: 36px; font-size: 13px; padding: 0 14px; color: var(--dim); }
+
 /* ── 操作键 ── */
 .actions {
   display: grid;

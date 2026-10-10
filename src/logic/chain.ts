@@ -30,7 +30,7 @@ export function computeChain(s: AppState, chainId: string): ChainView | null {
 
   const evs = s.events.filter((e) => e.chain === chainId);
   const empty: ChainView = {
-    id: chainId, name: meta.name, length: 0, activeSince: null, totalDone: 0, lastFailAt: null,
+    id: chainId, name: meta.name, length: 0, activeSince: null, totalDone: 0, scoutCount: 0, lastFailAt: null,
   };
   if (evs.length === 0) return empty;
 
@@ -53,13 +53,15 @@ export function computeChain(s: AppState, chainId: string): ChainView | null {
 
   // 3) 全量统计
   let totalDone = 0;
+  let scoutCount = 0;
   let lastFailAt: number | null = null;
   for (const e of evs) {
     if (normalizeType(chainId, e.type) === 'done') totalDone += 1;
+    if (e.type === 'scout') scoutCount += 1;
     if (normalizeType(chainId, e.type) === 'fail') lastFailAt = e.ts;
   }
 
-  return { id: chainId, name: meta.name, length, activeSince, totalDone, lastFailAt };
+  return { id: chainId, name: meta.name, length, activeSince, totalDone, scoutCount, lastFailAt };
 }
 
 /** 判例库：全部判允许的裁决，按时间正序 */

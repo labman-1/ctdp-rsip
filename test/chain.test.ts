@@ -58,6 +58,27 @@ describe('computeChain 链规则', () => {
     expect(v?.lastFailAt).not.toBeNull();
   });
 
+  it('侦查：不进链长，计数全量累计且 fail 不清零（低谷在场史）', () => {
+    const v = computeChain(state(
+      ev('trigger'), ev('done'),
+      ev('scout'), ev('scout'),
+      ev('fail', { note: '测试' }),
+      ev('scout'),
+    ), 'C1');
+    expect(v?.length).toBe(0);          // fail 清零，侦查不顶节点
+    expect(v?.scoutCount).toBe(3);      // 清零前后累计
+  });
+
+  it('侦查分链计数：只数当前链的', () => {
+    const s: AppState = {
+      version: 1, policies: {},
+      chains: { C1: { name: '算法题（本业）', createdAt: t }, C2: { name: '锻炼', createdAt: t } },
+      events: [ev('scout'), ev('scout', { chain: 'C2' })],
+    };
+    expect(computeChain(s, 'C1')?.scoutCount).toBe(1);
+    expect(computeChain(s, 'C2')?.scoutCount).toBe(1);
+  });
+
   it('fail 后尚未重来：length 0', () => {
     const v = computeChain(state(ev('trigger'), ev('done'), ev('fail')), 'C1');
     expect(v?.length).toBe(0);

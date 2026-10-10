@@ -15,6 +15,7 @@ export type EventType =
   | 'verdict'  // 判允许：登记判例（永久生效，不影响链长）
   | 'score'    // 睡前评分（G1 国策）
   | 'booking'  // 预约信号（辅助链，MVP 仅记账）
+  | 'scout'    // 侦查：读一道题+想清思路即记（5 分钟起步，不进链长，低谷在场史）
   // ── 国策树（RSIP，v0.4）。定义存在 state.policies 即手牌，无需 hand 事件 ──
   | 'policy_join'    // 上树（须当日凭证；全局每日配额 1）
   | 'policy_done'    // 国策当日执行成功（凭证 + 内化天数计数）
@@ -82,6 +83,8 @@ export interface ChainView {
   activeSince: number | null;
   /** 全部历史节点数（含被清零的），用于确认"内化进度不丢失" */
   totalDone: number;
+  /** 侦查累计（全历史，fail 不清零——低谷在场史是诚实记录而非欠账） */
+  scoutCount: number;
   /** 距今时间最近的 fail（若在近期，界面提示"链于 X 重来"） */
   lastFailAt: number | null;
 }

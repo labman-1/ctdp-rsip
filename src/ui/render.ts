@@ -14,6 +14,7 @@ export interface Handlers {
   onBookingVerdict(): void;
   onDone(): void;
   onFail(): void;
+  onScout(): void;
   onAmend(chainId: string): void;
   onScore(): void;
   onScoreLog(): void;
@@ -33,7 +34,7 @@ function fmtTime(ts: number): string {
 
 const EVENT_LABEL: Record<string, string> = {
   trigger: '触发', done: '完成 +1', fail: '判失败 · 清零', verdict: '判例登记',
-  score: '评分', booking: '预约',
+  score: '评分', booking: '预约', scout: '侦查',
 };
 
 export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: string): void {
@@ -89,6 +90,12 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
       <div class="num">${chain.length}</div>
       ${statusHtml}
     </div>
+
+    ${active ? '' : `
+    <div class="scoutrow">
+      <span>侦查 ×${chain.scoutCount} · 不进链长</span>
+      <button id="btn-scout" title="刚读完一道题、想清思路即点（5 分钟起步，零负担放弃；进了状态可顺势点正式触发）">侦查 +1</button>
+    </div>`}
 
     <div class="actions">${actionsHtml}</div>
 
@@ -146,6 +153,7 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
     a.addEventListener('click', () => h.onAmend(a.dataset.chain ?? '')));
   root.querySelector('#btn-done')?.addEventListener('click', h.onDone);
   root.querySelector('#btn-fail')?.addEventListener('click', h.onFail);
+  root.querySelector('#btn-scout')?.addEventListener('click', h.onScout);
   root.querySelector('#btn-score')?.addEventListener('click', h.onScore);
   root.querySelector('#btn-score-log')?.addEventListener('click', h.onScoreLog);
   root.querySelector('#btn-export')?.addEventListener('click', h.onExport);
