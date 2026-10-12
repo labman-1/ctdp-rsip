@@ -122,6 +122,33 @@ export function openScoreLogDialog(s: AppState): Promise<void> {
   });
 }
 
+/** 新建链（命名弹窗）。resolve：链名或 null */
+export function openNewChainDialog(): Promise<string | null> {
+  return new Promise((resolve) => {
+    const dlg = el(`
+      <dialog>
+        <h3>新建链</h3>
+        <div class="hint">链按行为类型分（如：算法输出 / 课程工程 / 锻炼）。链 id 自动分配，各自计数互不连坐。</div>
+        <div class="form">
+          <input id="nc-name" placeholder="链名（如：课程工程作业）" maxlength="30" />
+        </div>
+        <div class="dlg-actions">
+          <button data-act="ok">建立</button>
+          <button class="cancel" data-act="cancel">取消</button>
+        </div>
+      </dialog>`);
+
+    const finish = wireLifecycle<string | null>(dlg, resolve);
+    dlg.querySelector('[data-act="ok"]')?.addEventListener('click', () => {
+      const name = (dlg.querySelector('#nc-name') as HTMLInputElement).value.trim();
+      if (name) finish(name);
+    });
+    dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => finish(null));
+    document.body.appendChild(dlg);
+    dlg.showModal();
+  });
+}
+
 /** 导入二次确认（覆盖是破坏性操作）。resolve：true=替换 / false=取消（含 Esc） */
 export function openImportConfirm(count: number): Promise<boolean> {
   return new Promise((resolve) => {

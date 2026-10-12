@@ -43,6 +43,25 @@ export function updatePolicy(
   return next;
 }
 
+/** 新建主链 id：现有 C<n>（不含 "C1预约" 类派生链）最大编号 +1 */
+export function nextChainId(s: AppState): string {
+  const nums = Object.keys(s.chains)
+    .filter((id) => /^C\d+$/.test(id))
+    .map((id) => Number(id.slice(1)));
+  return `C${(nums.length > 0 ? Math.max(...nums) : 0) + 1}`;
+}
+
+/** 新建主链（预约链定义由 ensureDerivedChains 自动补齐）。返回新状态与新链 id。 */
+export function addChain(s: AppState, name: string): { state: AppState; id: string } {
+  const id = nextChainId(s);
+  const next = ensureDerivedChains({
+    ...s,
+    chains: { ...s.chains, [id]: { name, createdAt: Date.now() } },
+  });
+  save(next);
+  return { state: next, id };
+}
+
 function defaultState(): AppState {
   return ensureDerivedChains({
     version: 1,

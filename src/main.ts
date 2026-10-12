@@ -1,12 +1,12 @@
 // 入口（组合根）：加载状态 → 绑定事件 → 全量渲染 → 启动驱动器与 PWA。
 // commit() 是唯一的状态变更路径（append 事件 → 落盘 → 重渲染）。
 
-import { load, append, replaceWith, loadUiChain, saveUiChain, addPolicy, updatePolicy } from './state';
+import { load, append, replaceWith, loadUiChain, saveUiChain, addPolicy, updatePolicy, addChain } from './state';
 import { bookingState } from './logic/chain';
 import { policyView, canJoin } from './logic/policy';
 import { render } from './ui/render';
 import { renderPolicy } from './ui/renderPolicy';
-import { openVerdictDialog, openScoreDialog, openScoreLogDialog, openImportConfirm } from './ui/dialogs';
+import { openVerdictDialog, openScoreDialog, openScoreLogDialog, openImportConfirm, openNewChainDialog } from './ui/dialogs';
 import {
   openNewPolicyDialog, openSettleDialog, openJoinDialog,
   openCollapseConfirm, openPolicyDetail, openUpgradeDialog, openAmendDialog, openEditPolicyDialog,
@@ -83,6 +83,15 @@ const handlers = {
     const ids = Object.keys(S.chains).filter((id) => !id.endsWith('预约'));
     if (ids.length < 2) return;
     currentId = ids[(ids.indexOf(currentId) + 1) % ids.length];
+    saveUiChain(currentId);
+    rerender();
+  },
+  onNewChain: async () => {
+    const name = await openNewChainDialog();
+    if (!name) return;
+    const r = addChain(S, name);
+    S = r.state;
+    currentId = r.id; // 建完即切换到新链
     saveUiChain(currentId);
     rerender();
   },

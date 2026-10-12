@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { load, append, replaceWith } from '../src/state';
+import { load, append, replaceWith, addChain, nextChainId } from '../src/state';
 import type { AppState } from '../src/types';
 
 // node 环境没有 localStorage，用 Map 内存桩替代（接口与 Storage 兼容）
@@ -44,5 +44,19 @@ describe('state 持久化', () => {
     expect(replaceWith(good)?.events).toHaveLength(1);
     expect(replaceWith({ junk: true })).toBeNull();
     expect(load().events).toHaveLength(1); // 替换成功后存档即新档
+  });
+});
+
+describe('addChain 新建链', () => {
+  it('id 顺延（排除预约链），并自动补齐预约链定义', () => {
+    const s = load(); // 默认档 C1/C2（+各自预约链）
+    expect(nextChainId(s)).toBe('C3');
+    const r = addChain(s, '课程工程作业');
+    expect(r.id).toBe('C3');
+    expect(r.state.chains.C3.name).toBe('课程工程作业');
+    expect(r.state.chains['C3预约'].name).toContain('预约');
+    expect(load().chains.C3).toBeDefined(); // 已落盘
+    // 再建一条 → C4
+    expect(nextChainId(r.state)).toBe('C4');
   });
 });

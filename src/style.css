@@ -46,6 +46,8 @@ html, body {
   font-family: inherit;
 }
 .chain-switch:active { background: transparent; }
+.topbar-right { display: flex; align-items: baseline; gap: 10px; }
+.topbar-right button.mini { min-height: 24px; font-size: 11px; padding: 0 8px; }
 
 /* ── 链长（页面唯一主角）── */
 .hero {
