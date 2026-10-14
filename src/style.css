@@ -134,6 +134,16 @@ button.primary { border-color: var(--fg); }
   flex-shrink: 0;
 }
 .itemlist .row .amend:active { color: var(--fg); }
+.itemlist .row .chain-tag {
+  color: var(--dim);
+  opacity: 0.7;
+  font-size: 11px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 4px;
+  margin-left: 2px;
+  flex-shrink: 0;
+}
 
 /* ── 评分行 / 工具行 ── */
 .toolrow {

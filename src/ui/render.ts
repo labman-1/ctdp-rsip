@@ -129,7 +129,9 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
             : e.note ? `：${e.note}` : '';
           const amend = e.type === 'done' && e.chain
             ? `<span class="amend" data-chain="${esc(e.chain)}">补判</span>` : '';
-          return `<div class="row"><span class="t">${fmtTime(e.ts)}</span><span>${EVENT_LABEL[e.type] ?? e.type}${esc(extra)}</span>${amend}</div>`;
+          const chainTag = e.chain
+            ? ` <span class="chain-tag" title="${esc(s.chains[e.chain]?.name ?? e.chain)}">${esc(e.chain)}</span>` : '';
+          return `<div class="row"><span class="t">${fmtTime(e.ts)}</span><span>${EVENT_LABEL[e.type] ?? e.type}${esc(extra)}${chainTag}</span>${amend}</div>`;
         }).join('')
       }</div>
     </details>
