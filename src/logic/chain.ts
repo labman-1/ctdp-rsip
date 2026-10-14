@@ -64,10 +64,12 @@ export function computeChain(s: AppState, chainId: string): ChainView | null {
   return { id: chainId, name: meta.name, length, activeSince, totalDone, scoutCount, lastFailAt };
 }
 
-/** 判例库：全部判允许的裁决，按时间正序 */
-export function verdictList(s: AppState): Array<{ ts: number; text: string; chain?: string }> {
+/** 判例库：全部判允许的裁决，按时间正序。chainId 给定时只返回该链（含其预约链）的判例
+ *  ——判例的作用域在链内（"同类情况"=同链同类情境），跨链不适用。 */
+export function verdictList(s: AppState, chainId?: string): Array<{ ts: number; text: string; chain?: string }> {
   return s.events
     .filter((e) => e.type === 'verdict' && e.verdictText)
+    .filter((e) => !chainId || e.chain === chainId || e.chain === chainId + '预约')
     .map((e) => ({ ts: e.ts, text: e.verdictText as string, chain: e.chain }));
 }
 

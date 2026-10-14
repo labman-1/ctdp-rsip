@@ -137,4 +137,19 @@ describe('verdictList 判例库', () => {
   it('无判例时空数组', () => {
     expect(verdictList(state())).toEqual([]);
   });
+
+  it('按链过滤：只返回该链及其预约链的判例（判例作用域在链内）', () => {
+    const s: AppState = {
+      version: 1, policies: {},
+      chains: { C1: { name: '算法题', createdAt: t }, C3: { name: '课程工程', createdAt: t } },
+      events: [
+        { ts: t, type: 'verdict', chain: 'C1', verdictText: 'C1判例：≥40min达标' },
+        { ts: t + 1, type: 'verdict', chain: 'C1预约', verdictText: '预约判例' },
+        { ts: t + 2, type: 'verdict', chain: 'C3', verdictText: 'C3判例' },
+      ],
+    };
+    expect(verdictList(s, 'C1').map((v) => v.text)).toEqual(['C1判例：≥40min达标', '预约判例']);
+    expect(verdictList(s, 'C3').map((v) => v.text)).toEqual(['C3判例']);
+    expect(verdictList(s)).toHaveLength(3); // 不带参数 = 全量（后台总库语义）
+  });
 });

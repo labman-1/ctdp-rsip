@@ -78,8 +78,12 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
 
   const today = todayScore(s);
   const avg = averageLast7(s);
-  const verdicts = verdictList(s);
-  const recent = [...s.events].reverse().slice(0, 60);
+  const verdicts = verdictList(s, currentId);
+  // 本链事件（含预约链）+ 评分（全局睡前仪式，跨链可见）；国策事件属国策 tab 语义域，不在此显示。
+  // 全量事件流（后台总库）不因视图过滤而变化，导出永远为全量。
+  const chainEvents = [...s.events].reverse().filter((e) =>
+    e.type === 'score' || (e.chain !== undefined && (e.chain === currentId || e.chain === currentId + '预约')));
+  const recent = chainEvents.slice(0, 60);
 
   root.innerHTML = `
     <div class="topbar">
@@ -112,7 +116,7 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
     </div>
 
     <details class="section">
-      <summary><span>判例库</span><span>${verdicts.length} 条</span></summary>
+      <summary><span>判例库 · ${chain.name}</span><span>${verdicts.length} 条</span></summary>
       <div class="itemlist">${
         verdicts.length === 0
           ? '<div class="row">（尚无判例 — 疑似违规时当场裁决登记）</div>'
@@ -121,7 +125,7 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
     </details>
 
     <details class="section">
-      <summary><span>事件历史</span><span>${s.events.length} 条</span></summary>
+      <summary><span>事件历史 · 本链</span><span>${chainEvents.length} 条</span></summary>
       <div class="itemlist">${
         recent.map((e) => {
           const extra = e.type === 'verdict' && e.verdictText ? `：${e.verdictText}`
