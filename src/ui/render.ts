@@ -89,7 +89,6 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
     <div class="topbar">
       <button id="btn-chain" class="chain-switch" title="点击切换链">${multi ? '‹ ' : ''}${esc(chain.name)}${multi ? ' ›' : ''}</button>
       <span class="topbar-right">
-        <span>总节点 ${chain.totalDone}</span>
         <button id="btn-new-chain" class="mini" title="新建链（按行为类型分：算法/工程/锻炼…）">＋链</button>
       </span>
     </div>
