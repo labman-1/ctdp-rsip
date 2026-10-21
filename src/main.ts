@@ -4,6 +4,8 @@
 import { load, append, replaceWith, loadUiChain, saveUiChain, addPolicy, updatePolicy, addChain } from './state';
 import { bookingState } from './logic/chain';
 import { policyView, canJoin } from './logic/policy';
+import { canBackfillYesterday } from './logic/score';
+import { dayKey } from './logic/day';
 import { render } from './ui/render';
 import { renderPolicy } from './ui/renderPolicy';
 import { openVerdictDialog, openScoreDialog, openScoreLogDialog, openImportConfirm, openNewChainDialog } from './ui/dialogs';
@@ -132,10 +134,24 @@ const handlers = {
     if (e) commit(e);
   },
   onScore: async () => {
-    const e = await openScoreDialog();
+    const e = await openScoreDialog({ canBackfill: canBackfillYesterday(S) });
     if (e) commit(e);
+    if (!e) return;
+    if (e.backfill) {
+      // 补录路径：同步补记"睡前评分"国策的昨日结算（名称含"评分"的非被动国策唯一时才询问，不做静默猜测）
+      const target = Object.entries(S.policies).filter(([, d]) =>
+        d.kind !== 'passive' && (d.name + d.requirement).includes('评分'));
+      if (target.length === 1) {
+        const yk = dayKey(e.ts);
+        const already = S.events.some((x) => x.type === 'policy_done' && x.policyId === target[0][0] && dayKey(x.ts) === yk);
+        if (!already && confirm('一并补记昨晚的「睡前评分」国策结算（时间记为昨晚）？')) {
+          commit({ ts: e.ts, type: 'policy_done', policyId: target[0][0] });
+        }
+      }
+      return; // 现在是早上，今日结算软引导不适用
+    }
     // 评分后的软引导：国策结算了吗（两个睡前仪式合一；passive 免结算，不数）
-    if (e && Object.keys(S.policies).length > 0) {
+    if (Object.keys(S.policies).length > 0) {
       const v = policyView(S);
       const unsettled = Object.values(v.nodes).filter((n) => n.alive && !n.doneToday && n.kind !== 'passive').length;
       if (unsettled > 0) {

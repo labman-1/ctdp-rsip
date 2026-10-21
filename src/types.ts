@@ -33,6 +33,9 @@ export interface ChainEvent {
   readonly score?: number;
   /** 评分事件的分制标记；缺省视为旧 5 分制 */
   readonly scale?: 5 | 10;
+  /** score：补录标记 — 次日 12:00 前补昨晚的评分，时间戳记为昨晚 23:30。
+   *  与当晚评分永久区分（回忆分的保真度低一档，分析时可区别对待） */
+  readonly backfill?: boolean;
   /** 附注（失败原因、复盘一句话等） */
   readonly note?: string;
   // ── 国策事件字段 ──

@@ -3,7 +3,7 @@
 // 所有弹窗统一生命周期：按钮路径与 Esc/外部关闭路径都经 settled 防重入收口。
 
 import type { AppState, ChainEvent } from '../types';
-import { SCORE_ANCHORS, scoreHistory } from '../logic/score';
+import { SCORE_ANCHORS, scoreHistory, backfillTs } from '../logic/score';
 import { wireLifecycle } from './lifecycle';
 import { fmtTime } from './render';
 
@@ -56,13 +56,17 @@ export function openVerdictDialog(chainId: string, mode: 'now' | 'amend' = 'now'
   });
 }
 
-/** 睡前评分弹窗 — G1 根国策。0-10 分制，0.5 步进（滑块）。resolve：score 事件或 null */
-export function openScoreDialog(): Promise<ChainEvent | null> {
+/** 睡前评分弹窗 — G1 根国策。0-10 分制，0.5 步进（滑块）。
+ *  canBackfill：补录窗口开且昨晚未评时，提供"补昨晚"开关（时间记为昨晚 23:30，带补录标记）。
+ *  resolve：score 事件或 null */
+export function openScoreDialog(opts: { canBackfill?: boolean } = {}): Promise<ChainEvent | null> {
+  const bf = opts.canBackfill === true;
   return new Promise((resolve) => {
     const dlg = el(`
       <dialog>
-        <h3>睡前评分</h3>
+        <h3>睡前评分${bf ? ' · 可补昨晚' : ''}</h3>
         <div class="hint">躺上床后回想今天。0–10 分，0.5 步进：${Object.entries(SCORE_ANCHORS).map(([k, v]) => `${k} ${v}`).join(' / ')}。评分本身就是一次复盘。</div>
+        ${bf ? `<label class="bf-check"><input type="checkbox" id="bf-check" /><span>补昨晚（昨晚忘评：按昨晚的草稿打分，时间记为昨晚 23:30）</span></label>` : ''}
         <div class="score-slider">
           <div class="score-value" id="score-value">5.0</div>
           <input type="range" id="score-input" min="0" max="10" step="0.5" value="5" />
@@ -82,7 +86,10 @@ export function openScoreDialog(): Promise<ChainEvent | null> {
 
     dlg.querySelector('[data-act="ok"]')?.addEventListener('click', () => {
       const note = (dlg.querySelector('textarea') as HTMLTextAreaElement).value.trim();
-      finish({ ts: Date.now(), type: 'score', score: picked, scale: 10, note: note || undefined });
+      const isBf = bf && (dlg.querySelector('#bf-check') as HTMLInputElement | null)?.checked === true;
+      finish(isBf
+        ? { ts: backfillTs(Date.now()), type: 'score', score: picked, scale: 10, note: note || undefined, backfill: true }
+        : { ts: Date.now(), type: 'score', score: picked, scale: 10, note: note || undefined });
     });
     dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => finish(null));
 
@@ -104,7 +111,7 @@ export function openScoreLogDialog(s: AppState): Promise<void> {
     const rows = hist.length === 0
       ? '<div class="empty">（还没有评分记录）</div>'
       : hist.map((e) =>
-          `<div class="row"><span class="t">${fmtTime(e.ts)}</span><span><b>${e.score.toFixed(1)}</b>${e.note ? ` · ${esc(e.note)}` : ''}</span></div>`).join('');
+          `<div class="row"><span class="t">${fmtTime(e.ts)}</span><span>${e.backfill ? '<span class="bfmark" title="次日补录（回忆分）">补</span> ' : ''}<b>${e.score.toFixed(1)}</b>${e.note ? ` · ${esc(e.note)}` : ''}</span></div>`).join('');
     const dlg = el(`
       <dialog>
         <h3>评分日志</h3>

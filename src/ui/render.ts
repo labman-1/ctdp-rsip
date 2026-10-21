@@ -4,7 +4,7 @@
 
 import type { AppState } from '../types';
 import { computeChain, verdictList, bookingState } from '../logic/chain';
-import { todayScore, averageLast7 } from '../logic/score';
+import { todayScore, averageLast7, canBackfillYesterday } from '../logic/score';
 
 export interface Handlers {
   onSwitchTab(tab: 'chain' | 'policy'): void;
@@ -107,7 +107,7 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
     <div class="actions">${actionsHtml}</div>
 
     <div class="toolrow">
-      <span>${today ? '今日已评分 ✓' : '今日未评分'}</span>
+      <span>${today ? '今日已评分 ✓' : '今日未评分'}${canBackfillYesterday(s) ? ' <span class="bf-hint">昨晚漏评 · 中午 12 点前可补</span>' : ''}</span>
       <div class="toolbtns">
         <button id="btn-score">评分</button>
         <button id="btn-score-log">日志</button>

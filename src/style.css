@@ -157,6 +157,18 @@ button.primary { border-color: var(--fg); }
 }
 .toolrow button { min-height: 44px; font-size: 14px; padding: 0 16px; }
 .toolrow .toolbtns { display: flex; gap: 10px; }
+/* 补昨晚：评分行的窗口内提示 + 弹窗开关 + 日志补录标记 */
+.bf-hint { color: #d8b25a; font-size: 12px; }
+.bf-check {
+  display: flex; gap: 8px; align-items: flex-start;
+  font-size: 13px; color: #d8b25a; margin: 6px 0 2px; cursor: pointer;
+}
+.bf-check input { margin-top: 2px; }
+.bfmark {
+  display: inline-block; border: 1px solid #d8b25a; color: #d8b25a;
+  font-size: 10px; line-height: 1; padding: 2px 4px; border-radius: 4px;
+  margin-right: 2px; vertical-align: 1px;
+}
 /* 半透明 = 可点击但有前置条件（点按后弹窗说明原因），区别于完全不可用的 disabled */
 button.dim { opacity: 0.45; }
 dialog .itemlist { max-height: 50vh; overflow-y: auto; }
