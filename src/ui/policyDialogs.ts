@@ -2,7 +2,7 @@
 // 统一走 wireLifecycle（Esc 兜底，见 dialogs.ts）。
 
 import type { AppState, PolicyDef, PolicyKind } from '../types';
-import { policyView, collapseList, isLeaf, type PolicyView } from '../logic/policy';
+import { policyView, collapseList, isLeaf, backfillCandidates, type PolicyView } from '../logic/policy';
 import { wireLifecycle } from './lifecycle';
 
 function el(html: string): HTMLDialogElement {
@@ -62,8 +62,9 @@ export function openNewPolicyDialog(): Promise<Omit<PolicyDef, 'createdAt'> | nu
 }
 
 /** 今日结算：列出全部需日判定的国策勾选"今天做到了"（passive 不参与——存续自动计）。
- *  resolve：要记 done 的 id 数组 */
-export function openSettleDialog(s: AppState): Promise<string[] | null> {
+ *  窗口内（4:00–12:00）附带"补昨晚"区块：昨日漏结算的国策可补记（ts 由调用方打昨日 23:30）。
+ *  resolve：{ today, yesterday } 两组 id 或 null */
+export function openSettleDialog(s: AppState): Promise<{ today: string[]; yesterday: string[] } | null> {
   return new Promise((resolve) => {
     const v = policyView(s);
     const ids = Object.keys(s.policies).filter((id) => s.policies[id].kind !== 'passive');
@@ -75,22 +76,34 @@ export function openSettleDialog(s: AppState): Promise<string[] | null> {
         <span>${esc2(def.name)}${n?.alive ? '' : '（手牌）'} · ${n?.daysTotal ?? 0}天</span>
       </label>`;
     }).join('');
+    const bfIds = backfillCandidates(s);
+    const bfBlock = bfIds.length > 0 ? `
+      <div class="settle-bf">
+        <div class="bf-hint">补昨晚 · 昨日漏结算（中午 12 点前可补）</div>
+        ${bfIds.map((id) => `<label class="settle-row">
+          <input type="checkbox" data-bfid="${id}" />
+          <span>${esc2(s.policies[id].name)}</span>
+        </label>`).join('')}
+      </div>` : '';
     const dlg = el(`
       <dialog>
         <h3>今日结算（睡前巡逻）</h3>
         <div class="hint">勾选今天做到了的国策。手牌期的执行同样计入内化天数；被动型不参与（存续自动计）。</div>
         <div class="settle-list">${rows || '<div class="empty">（没有需要每日结算的国策——被动型在树即自动累计）</div>'}</div>
+        ${bfBlock}
         <div class="dlg-actions">
           <button data-act="ok">记下</button>
           <button class="cancel" data-act="cancel">取消</button>
         </div>
       </dialog>`);
 
-    const finish = wireLifecycle<string[] | null>(dlg, resolve);
+    const finish = wireLifecycle<{ today: string[]; yesterday: string[] } | null>(dlg, resolve);
     dlg.querySelector('[data-act="ok"]')?.addEventListener('click', () => {
-      const checked = Array.from(dlg.querySelectorAll<HTMLInputElement>('input[data-id]:checked'))
+      const today = Array.from(dlg.querySelectorAll<HTMLInputElement>('input[data-id]:checked'))
         .map((c) => c.dataset.id as string);
-      finish(checked);
+      const yesterday = Array.from(dlg.querySelectorAll<HTMLInputElement>('input[data-bfid]:checked'))
+        .map((c) => c.dataset.bfid as string);
+      finish({ today, yesterday });
     });
     dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => finish(null));
     show(dlg);

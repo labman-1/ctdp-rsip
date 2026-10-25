@@ -15,6 +15,7 @@
 
 import type { AppState, PolicyKind } from '../types';
 import { dayKey, daysBetween } from './day';
+import { backfillWindowOpen } from './score';
 
 export interface PolicyNode {
   id: string;
@@ -153,4 +154,16 @@ export function canJoin(view: PolicyView, id: string): { ok: boolean; reason?: s
 /** 末梢原则：复活/上树时，父节点只能是当前的叶子（或独立根） */
 export function isLeaf(view: PolicyView, id: string): boolean {
   return (view.nodes[id]?.children.length ?? 0) === 0;
+}
+
+/** 补昨晚结算候选：窗口内（今日 4:00–12:00）昨日 dayKey 无 done 的非被动国策。
+ *  与评分补录共用窗口语义（过午即关，防事后补写）；补记 ts 由调用方用 backfillTs 打昨日 23:30。 */
+export function backfillCandidates(s: AppState, now = Date.now()): string[] {
+  if (!backfillWindowOpen(now)) return [];
+  const yk = dayKey(now - 24 * 3600 * 1000);
+  const settled = new Set<string>();
+  for (const e of s.events) {
+    if (e.type === 'policy_done' && e.policyId && dayKey(e.ts) === yk) settled.add(e.policyId);
+  }
+  return Object.keys(s.policies).filter((id) => s.policies[id].kind !== 'passive' && !settled.has(id));
 }

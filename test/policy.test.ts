@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { policyView, collapseList, canJoin, isLeaf } from '../src/logic/policy';
+import { policyView, collapseList, canJoin, isLeaf, backfillCandidates } from '../src/logic/policy';
 import type { AppState, ChainEvent } from '../src/types';
 
 let t = 1_700_000_000_000;
@@ -198,5 +198,35 @@ describe('被动国策：存续区间计数（免凭证 + 无日结算）', () =
       { ts: t + 26 * 3600e3, type: 'policy_done', policyId: 'P1' },
     ]), t + 30 * 3600e3);
     expect(v.nodes.P1.daysTotal).toBe(2);
+  });
+});
+
+describe('补昨晚结算候选（backfillCandidates）', () => {
+  // 2026-10-21 08:00（窗口内）；昨日 = 10-20
+  const morning = new Date(2026, 9, 21, 8, 0).getTime();
+  const yDone = (h: number): ChainEvent =>
+    ({ ts: new Date(2026, 9, 20, h, 0).getTime(), type: 'policy_done', policyId: 'P1' });
+
+  it('窗口内：昨日无结算 → 全部非被动国策为候选（passive 永不）', () => {
+    const ids = backfillCandidates(state([]), morning);
+    expect(ids).toContain('P1');
+    expect(ids).toContain('P3');
+    expect(ids).not.toContain('P2');
+  });
+
+  it('昨日已有 done 的国策（含 23:30 补录时刻）不再列入', () => {
+    expect(backfillCandidates(state([yDone(23)]), morning)).toEqual(['P3']);
+    expect(backfillCandidates(state([yDone(12)]), morning)).toEqual(['P3']);
+  });
+
+  it('窗口外（午后/凌晨）不提供候选', () => {
+    expect(backfillCandidates(state([]), new Date(2026, 9, 21, 14, 0).getTime())).toEqual([]);
+    expect(backfillCandidates(state([]), new Date(2026, 9, 21, 0, 30).getTime())).toEqual([]);
+  });
+
+  it('今日的 done 不影响昨日判定（dayKey 隔离）', () => {
+    const todayDone: ChainEvent =
+      { ts: new Date(2026, 9, 21, 7, 0).getTime(), type: 'policy_done', policyId: 'P1' };
+    expect(backfillCandidates(state([todayDone]), morning)).toContain('P1');
   });
 });

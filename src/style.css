@@ -169,6 +169,10 @@ button.primary { border-color: var(--fg); }
   font-size: 10px; line-height: 1; padding: 2px 4px; border-radius: 4px;
   margin-right: 2px; vertical-align: 1px;
 }
+/* 结算弹窗内的"补昨晚"区块 */
+.settle-bf {
+  margin-top: 10px; padding-top: 8px; border-top: 1px dashed #d8b25a55;
+}
 /* 半透明 = 可点击但有前置条件（点按后弹窗说明原因），区别于完全不可用的 disabled */
 button.dim { opacity: 0.45; }
 dialog .itemlist { max-height: 50vh; overflow-y: auto; }

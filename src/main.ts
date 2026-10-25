@@ -4,7 +4,7 @@
 import { load, append, replaceWith, loadUiChain, saveUiChain, addPolicy, updatePolicy, addChain } from './state';
 import { bookingState } from './logic/chain';
 import { policyView, canJoin } from './logic/policy';
-import { canBackfillYesterday } from './logic/score';
+import { canBackfillYesterday, backfillTs } from './logic/score';
 import { dayKey } from './logic/day';
 import { render } from './ui/render';
 import { renderPolicy } from './ui/renderPolicy';
@@ -176,14 +176,18 @@ const policyHandlers = {
     if (def) { S = addPolicy(S, def); rerender(); }
   },
   onSettle: async () => {
-    const ids = await openSettleDialog(S);
-    if (!ids) return;
-    // 与当前 doneToday 对比：补记新增的 done（不支持撤销当日 done——如实记录）
+    const r = await openSettleDialog(S);
+    if (!r) return;
+    // 与当前 doneToday 对比：补记新增的 done（不支持撤销当日 done——如实记录）；
+    // 补昨晚部分打昨日 23:30（日界归属正确，今日结算位不受影响）
     const v = policyView(S);
-    const news = ids.filter((id) => !v.nodes[id]?.doneToday);
-    if (news.length > 0) {
-      const doneEvents: ChainEvent[] = news.map((id) => ({ ts: Date.now(), type: 'policy_done' as const, policyId: id }));
-      S = append(S, ...doneEvents);
+    const news = r.today.filter((id) => !v.nodes[id]?.doneToday);
+    const evs = [
+      ...news.map((id) => ({ ts: Date.now(), type: 'policy_done' as const, policyId: id })),
+      ...r.yesterday.map((id) => ({ ts: backfillTs(Date.now()), type: 'policy_done' as const, policyId: id })),
+    ];
+    if (evs.length > 0) {
+      S = append(S, ...evs);
       rerender();
     }
   },
