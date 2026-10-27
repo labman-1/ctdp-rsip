@@ -29,7 +29,7 @@ export function setupPwa(): void {
     const icon192 = makeIcon(192);
     const icon512 = makeIcon(512);
     const manifest = {
-      name: '链 · CTDP',
+      name: 'CTDP·RSIP',
       short_name: '链',
       start_url: '.',
       display: 'standalone',

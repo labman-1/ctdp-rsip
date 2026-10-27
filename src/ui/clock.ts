@@ -14,7 +14,7 @@ export interface ClockDeps {
   notify(title: string, body: string): void;
 }
 
-const BASE_TITLE = typeof document !== 'undefined' ? document.title : '链 · CTDP';
+const BASE_TITLE = typeof document !== 'undefined' ? document.title : 'CTDP·RSIP';
 
 export function startClock(deps: ClockDeps): void {
   let lastPhase = bookingState(deps.getState(), deps.getCurrentId()).phase;
@@ -26,7 +26,7 @@ export function startClock(deps: ClockDeps): void {
       lastPhase = view.phase;
       deps.rerender();
       if (view.phase === 'due') {
-        deps.notify('预约到期', '宽限 5 分钟内立即触发 — 链 · CTDP');
+        deps.notify('预约到期', '宽限 5 分钟内立即触发 — CTDP·RSIP');
       } else if (view.phase === 'overdue') {
         deps.notify('预约失约', '打开页面完成下必为例裁决');
       } else if (view.phase === 'none') {
