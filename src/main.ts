@@ -222,11 +222,11 @@ const policyHandlers = {
       rerender();
     }
   },
-  onFreeze: async (id: string) => {
+  onFreeze: async () => {
     const v = policyView(S);
     const gate = canFreeze(v);
     if (!gate.ok) { alert(gate.reason ?? '当前不可封舱'); return; }
-    const r = await openFreezeDialog(S, v, id);
+    const r = await openFreezeDialog(S, v);
     if (!r) return;
     const ts = Date.now();
     S = append(S, ...r.ids.map((pid) => ({

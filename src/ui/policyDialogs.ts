@@ -324,14 +324,14 @@ export function openAmendDialog(): Promise<string | null> {
   });
 }
 
-/** 封舱（水密隔舱）：多选在树国策 + 理由（必填）+ 预期解封日（软约束，逾期仅提醒）。
- *  preId：从卡片进入时预勾选该卡。资格判定走协议层（目前仅判例#1 医学豁免类），App 不裁。
+/** 封舱（水密隔舱）：一次事件封多条——多选在树国策 + 统一理由（必填）+ 统一预期解封日（软约束，逾期仅提醒）。
+ *  资格判定走协议层（目前仅判例#1 医学豁免类），App 不裁；启封逐条进行（舱区块内操作）。
  *  resolve：{ ids, reason, expectedUntil? } 或 null */
-export function openFreezeDialog(s: AppState, v: PolicyView, preId: string): Promise<{ ids: string[]; reason: string; expectedUntil?: number } | null> {
+export function openFreezeDialog(s: AppState, v: PolicyView): Promise<{ ids: string[]; reason: string; expectedUntil?: number } | null> {
   return new Promise((resolve) => {
     const cand = Object.keys(v.nodes).filter((id) => v.nodes[id].alive && v.nodes[id].frozenSince === null);
     const rows = cand.map((id) => `<label class="settle-row">
-      <input type="checkbox" data-fid="${id}" ${id === preId ? 'checked' : ''} />
+      <input type="checkbox" data-fid="${id}" />
       <span>${esc2(s.policies[id]?.name ?? id)}</span>
     </label>`).join('');
     const dlg = el(`

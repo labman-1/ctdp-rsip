@@ -10,7 +10,7 @@ export interface PolicyHandlers {
   onSettle(): void;
   onJoin(id: string): void;
   onCollapse(id: string): void;
-  onFreeze(id: string): void;
+  onFreeze(): void;
   onUnfreeze(id: string): void;
   onDetail(id: string): void;
 }
@@ -46,12 +46,11 @@ function cardRow(s: AppState, v: PolicyView, id: string, depth: number): string 
       ${def.brief ? `<div class="policy-brief">${esc(def.brief)}</div>` : ''}
       <div class="policy-ops">
         <button class="mini" data-detail="${id}">详情</button>
-        ${n.frozenSince !== null
-          ? `<button class="mini${canUnfreeze(v, id).ok ? '' : ' dim'}" data-unfreeze="${id}">启封</button>`
-          : n.alive
-            ? `<button class="mini" data-freeze="${id}">封舱</button>
-               <button class="mini danger" data-collapse="${id}">熄灭</button>`
-            : `<button class="mini${joinable.ok ? '' : ' dim'}" data-join="${id}">上树</button>`}
+        ${n.frozenSince === null
+          ? (n.alive
+              ? `<button class="mini danger" data-collapse="${id}">熄灭</button>`
+              : `<button class="mini${joinable.ok ? '' : ' dim'}" data-join="${id}">上树</button>`)
+          : ''}
       </div>
     </div>`;
 }
@@ -70,6 +69,28 @@ export function renderPolicy(root: HTMLElement, s: AppState, h: PolicyHandlers, 
   if (tab !== 'policy') return; // main 负责分发，此处只渲染国策 tab
   const v = policyView(s);
 
+  // 舱（水密隔舱）作为整体展示：封舱是事件不是单卡属性——统一入口进入，逐条启封退出
+  const fzBlock = v.frozen.length > 0 ? (() => {
+    const newest = [...v.frozen].sort((a, b) => (v.nodes[b].frozenSince ?? 0) - (v.nodes[a].frozenSince ?? 0))[0];
+    const head = v.nodes[newest];
+    const until = head.frozenExpectedUntil;
+    const rows = v.frozen.map((id) => {
+      const n = v.nodes[id];
+      const ok = canUnfreeze(v, id).ok;
+      const state = n.kind === 'passive' ? '启封即在岗' : (n.doneToday ? '今日凭证✓' : '需当日凭证');
+      return `<div class="fz-row">
+        <span>${esc(s.policies[id]?.name ?? id)} · ${state}</span>
+        <button class="mini${ok ? '' : ' dim'}" data-unfreeze="${id}">启封</button>
+      </div>`;
+    }).join('');
+    return `
+    <div class="fz-block">
+      <div class="section-title">舱 · 水密隔舱（${v.frozen.length}）</div>
+      <div class="policy-brief">理由：${esc(head.frozenReason ?? '（未填）')} · 预期：${until ? new Date(until).toLocaleDateString() : '未设'}${v.freezeOverdue.length > 0 ? '（<b>已逾期</b>——逾期不强制，恢复为准）' : ''}</div>
+      ${rows}
+    </div>`;
+  })() : '';
+
   root.innerHTML = `
     <div class="topbar">
       <span>国策树 · RSIP</span>
@@ -78,8 +99,11 @@ export function renderPolicy(root: HTMLElement, s: AppState, h: PolicyHandlers, 
 
     <div class="actions" style="margin-top:14px">
       <button id="btn-settle">今日结算</button>
+      <button id="btn-freeze">封舱</button>
       <button id="btn-new-policy">新建国策</button>
     </div>
+
+    ${fzBlock}
 
     <div class="policy-section">
       <div class="section-title">在树（${v.roots.length ? countAlive(v) : 0}）</div>
@@ -102,14 +126,13 @@ export function renderPolicy(root: HTMLElement, s: AppState, h: PolicyHandlers, 
   `;
 
   root.querySelector('#tab-chain')?.addEventListener('click', () => h.onSwitchTab('chain'));
-  root.querySelector('#btn-settle')?.addEventListener('click', h.onSettle);
-  root.querySelector('#btn-new-policy')?.addEventListener('click', h.onNewPolicy);
+  root.querySelector('#btn-settle')?.addEventListener('click', () => h.onSettle());
+  root.querySelector('#btn-freeze')?.addEventListener('click', () => h.onFreeze());
+  root.querySelector('#btn-new-policy')?.addEventListener('click', () => h.onNewPolicy());
   root.querySelectorAll<HTMLButtonElement>('[data-join]').forEach((b) =>
     b.addEventListener('click', () => h.onJoin(b.dataset.join ?? '')));
   root.querySelectorAll<HTMLButtonElement>('[data-collapse]').forEach((b) =>
     b.addEventListener('click', () => h.onCollapse(b.dataset.collapse ?? '')));
-  root.querySelectorAll<HTMLButtonElement>('[data-freeze]').forEach((b) =>
-    b.addEventListener('click', () => h.onFreeze(b.dataset.freeze ?? '')));
   root.querySelectorAll<HTMLButtonElement>('[data-unfreeze]').forEach((b) =>
     b.addEventListener('click', () => h.onUnfreeze(b.dataset.unfreeze ?? '')));
   root.querySelectorAll<HTMLButtonElement>('[data-detail]').forEach((b) =>

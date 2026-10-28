@@ -272,7 +272,10 @@ dialog .cancel { border: none; color: var(--dim); min-height: 36px; font-size: 1
 .tag.todo { color: var(--danger); border-color: #3a2626; }
 .tag.kind-passive { color: #7a9aa8; border-color: #2c353a; }
 .policy-brief { color: var(--dim); font-size: 12px; margin-top: 4px; }
-.policy-ops { position: absolute; top: 8px; right: 10px; display: flex; gap: 6px; }
+/* 操作排在文档流内右对齐（原绝对定位右上角——按钮增至三个后与换行的标签行重叠，2026-10-28 修） */
+.policy-ops { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; margin-top: 6px; }
+.fz-block { border: 1px dashed var(--line); border-radius: var(--radius); padding: 8px 12px; margin: 12px 0; }
+.fz-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 0; font-size: 13px; }
 button.mini {
   min-height: 30px;
   font-size: 12px;
