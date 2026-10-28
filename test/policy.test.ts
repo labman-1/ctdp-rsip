@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { policyView, collapseList, canJoin, isLeaf, backfillCandidates } from '../src/logic/policy';
+import { policyView, collapseList, canJoin, isLeaf, backfillCandidates, unitLabel, canFreeze, canUnfreeze } from '../src/logic/policy';
 import type { AppState, ChainEvent } from '../src/types';
 
 let t = 1_700_000_000_000;
@@ -228,5 +228,94 @@ describe('补昨晚结算候选（backfillCandidates）', () => {
     const todayDone: ChainEvent =
       { ts: new Date(2026, 9, 21, 7, 0).getTime(), type: 'policy_done', policyId: 'P1' };
     expect(backfillCandidates(state([todayDone]), morning)).toContain('P1');
+  });
+});
+
+describe('unitLabel 凭证计量单位（单位属于国策定义，渲染零特例）', () => {
+  it('缺省按类型推导：passive/semi=天，active=次', () => {
+    expect(unitLabel({ kind: 'passive' })).toBe('天');
+    expect(unitLabel({ kind: 'semi' })).toBe('天');
+    expect(unitLabel({ kind: 'active' })).toBe('次');
+  });
+
+  it('覆写优先：unit 字段胜过类型默认（G1 晚 / G3 节点 / G5 入座天）', () => {
+    expect(unitLabel({ kind: 'semi', unit: '晚' })).toBe('晚');
+    expect(unitLabel({ kind: 'semi', unit: '节点' })).toBe('节点');
+    expect(unitLabel({ kind: 'passive', unit: '入座天' })).toBe('入座天');
+  });
+
+  it('空白 unit 视为未设置（编辑清空 = 回到类型默认）', () => {
+    expect(unitLabel({ kind: 'active', unit: '   ' })).toBe('次');
+  });
+});
+
+describe('封舱/启封（水密隔舱系统化）', () => {
+  const d = (day: number, h = 10) => new Date(2026, 9, day, h).getTime();
+  const mk = (kind: 'passive' | 'semi', events: ChainEvent[]): AppState => ({
+    version: 1,
+    chains: {},
+    policies: { P9: { name: '试验舱', kind, requirement: 'r', level: 1, createdAt: 1 } },
+    events,
+  });
+
+  it('passive 封舱期间存续停计，启封日重开新段（恢复当日即在岗）', () => {
+    const s = mk('passive', [
+      { ts: d(1), type: 'policy_join', policyId: 'P9', parent: null },
+      { ts: d(4), type: 'policy_freeze', policyId: 'P9', note: '手术', expectedUntil: d(30) },
+      { ts: d(14), type: 'policy_unfreeze', policyId: 'P9' },
+    ]);
+    const v = policyView(s, d(20));
+    expect(v.nodes.P9.daysTotal).toBe(10); // [1,4) 含头不含尾=3 + [14,20] 含头含尾=7
+    expect(v.nodes.P9.frozenSince).toBeNull();
+    expect(v.nodes.P9.alive).toBe(true);
+  });
+
+  it('全局单舱：舱未清空前不可再封，全部启封后恢复可封', () => {
+    // 视图从全部事件派生（事件恒为当下时间戳，无未来事件）——"舱中"与"已清舱"用两个状态分别构造
+    const inFreeze = mk('semi', [
+      { ts: d(1), type: 'policy_join', policyId: 'P9', parent: null },
+      { ts: d(2), type: 'policy_freeze', policyId: 'P9', note: '病' },
+      { ts: d(5, 21), type: 'policy_done', policyId: 'P9' },
+    ]);
+    expect(canFreeze(policyView(inFreeze, d(5, 22))).ok).toBe(false);
+    const cleared = { ...inFreeze, events: [...inFreeze.events, { ts: d(6), type: 'policy_unfreeze', policyId: 'P9' } as ChainEvent] };
+    expect(canFreeze(policyView(cleared, d(6, 22))).ok).toBe(true);
+  });
+
+  it('启封门槛逐条判定：semi 需当日执行凭证，passive 直接可启', () => {
+    const s = mk('semi', [
+      { ts: d(1), type: 'policy_join', policyId: 'P9', parent: null },
+      { ts: d(2), type: 'policy_freeze', policyId: 'P9', note: '病' },
+    ]);
+    expect(canUnfreeze(policyView(s, d(5, 22)), 'P9').ok).toBe(false);
+    const s2: AppState = { ...s, events: [...s.events, { ts: d(5, 21), type: 'policy_done', policyId: 'P9' }] };
+    expect(canUnfreeze(policyView(s2, d(5, 22)), 'P9').ok).toBe(true);
+
+    const sp = mk('passive', [
+      { ts: d(1), type: 'policy_join', policyId: 'P9', parent: null },
+      { ts: d(2), type: 'policy_freeze', policyId: 'P9', note: '病' },
+    ]);
+    expect(canUnfreeze(policyView(sp, d(5)), 'P9').ok).toBe(true);
+  });
+
+  it('舱内国策不入补昨晚候选；预期期限逾期进 freezeOverdue', () => {
+    const s = mk('semi', [
+      { ts: d(1), type: 'policy_join', policyId: 'P9', parent: null },
+      { ts: d(19), type: 'policy_freeze', policyId: 'P9', note: '病', expectedUntil: d(20) },
+    ]);
+    const v = policyView(s, d(21, 8));
+    expect(v.freezeOverdue).toContain('P9');
+    expect(backfillCandidates(s, d(21, 8))).not.toContain('P9');
+  });
+
+  it('舱内执行照记 done 计天（启封凭证与内化天数一体）', () => {
+    const s = mk('semi', [
+      { ts: d(1), type: 'policy_join', policyId: 'P9', parent: null },
+      { ts: d(2), type: 'policy_freeze', policyId: 'P9', note: '病' },
+      { ts: d(5, 21), type: 'policy_done', policyId: 'P9' },
+    ]);
+    const v = policyView(s, d(5, 22));
+    expect(v.nodes.P9.daysTotal).toBe(1);
+    expect(v.nodes.P9.doneToday).toBe(true);
   });
 });

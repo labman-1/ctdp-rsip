@@ -2,7 +2,7 @@
 // 统一走 wireLifecycle（Esc 兜底，见 dialogs.ts）。
 
 import type { AppState, PolicyDef, PolicyKind } from '../types';
-import { policyView, collapseList, isLeaf, backfillCandidates, type PolicyView } from '../logic/policy';
+import { policyView, collapseList, isLeaf, backfillCandidates, unitLabel, type PolicyView } from '../logic/policy';
 import { wireLifecycle } from './lifecycle';
 
 function el(html: string): HTMLDialogElement {
@@ -30,6 +30,7 @@ export function openNewPolicyDialog(): Promise<Omit<PolicyDef, 'createdAt'> | nu
             <option value="semi" selected>半被动型（锚定必然事件，如"躺上床后…"）</option>
             <option value="active">主动型（to-do 式，慎用）</option>
           </select>
+          <input id="np-unit" placeholder="凭证单位（可选：晚/节点/入座天…缺省按类型=天或次）" maxlength="6" />
           <textarea id="np-req" placeholder="要求全文（判定标准一句话说清）"></textarea>
           <input id="np-brief" placeholder="卡片要点（可选，列表显示）" maxlength="60" />
           <textarea id="np-detail" placeholder="详情装饰（可选：注脚/emoji/图片URL——只存 URL 不存图片本体）"></textarea>
@@ -52,6 +53,7 @@ export function openNewPolicyDialog(): Promise<Omit<PolicyDef, 'createdAt'> | nu
         kind: val('#np-kind') as PolicyKind,
         requirement,
         level: 1,
+        unit: val('#np-unit').trim() || undefined,
         brief: val('#np-brief').trim() || undefined,
         detail: val('#np-detail').trim() || undefined,
       });
@@ -61,19 +63,23 @@ export function openNewPolicyDialog(): Promise<Omit<PolicyDef, 'createdAt'> | nu
   });
 }
 
-/** 今日结算：列出全部需日判定的国策勾选"今天做到了"（passive 不参与——存续自动计）。
+/** 今日结算：列出全部需日判定的国策勾选"今天做到了"（passive 不参与——存续自动计；舱内不参与——无义务，
+ *  另设舱内区块记执行凭证兼作启封门槛）。
  *  窗口内（4:00–12:00）附带"补昨晚"区块：昨日漏结算的国策可补记（ts 由调用方打昨日 23:30）。
- *  resolve：{ today, yesterday } 两组 id 或 null */
-export function openSettleDialog(s: AppState): Promise<{ today: string[]; yesterday: string[] } | null> {
+ *  resolve：{ today, yesterday, frozen } 三组 id 或 null */
+export function openSettleDialog(s: AppState): Promise<{ today: string[]; yesterday: string[]; frozen: string[] } | null> {
   return new Promise((resolve) => {
     const v = policyView(s);
-    const ids = Object.keys(s.policies).filter((id) => s.policies[id].kind !== 'passive');
+    const ids = Object.keys(s.policies).filter((id) => {
+      const def = s.policies[id];
+      return def.kind !== 'passive' && v.nodes[id]?.frozenSince == null;
+    });
     const rows = ids.map((id) => {
       const def = s.policies[id];
       const n = v.nodes[id];
       return `<label class="settle-row">
         <input type="checkbox" data-id="${id}" ${n?.doneToday ? 'checked' : ''} />
-        <span>${esc2(def.name)}${n?.alive ? '' : '（手牌）'} · ${n?.daysTotal ?? 0}天</span>
+        <span>${esc2(def.name)}${n?.alive ? '' : '（手牌）'} · ${n?.daysTotal ?? 0}${unitLabel(def)}</span>
       </label>`;
     }).join('');
     const bfIds = backfillCandidates(s);
@@ -85,11 +91,21 @@ export function openSettleDialog(s: AppState): Promise<{ today: string[]; yester
           <span>${esc2(s.policies[id].name)}</span>
         </label>`).join('')}
       </div>` : '';
+    const fzIds = v.frozen.filter((id) => s.policies[id].kind !== 'passive');
+    const fzBlock = v.frozen.length > 0 ? `
+      <div class="settle-bf">
+        <div class="bf-hint">舱内 · 无结算义务${v.freezeOverdue.length > 0 ? ` · <b>已过预期期限：${esc2(v.freezeOverdue.map((i) => s.policies[i]?.name ?? i).join('、'))}</b>` : ''}</div>
+        ${fzIds.map((id) => `<label class="settle-row">
+          <input type="checkbox" data-fid="${id}" />
+          <span>${esc2(s.policies[id].name)} — 今日已执行（记凭证计天，兼作启封门槛）</span>
+        </label>`).join('')}
+      </div>` : '';
     const dlg = el(`
       <dialog>
         <h3>今日结算（睡前巡逻）</h3>
-        <div class="hint">勾选今天做到了的国策。手牌期的执行同样计入内化天数；被动型不参与（存续自动计）。</div>
+        <div class="hint">勾选今天做到了的国策。手牌期的执行同样计入内化天数；被动型不参与（存续自动计）；舱内无义务（执行另记）。</div>
         <div class="settle-list">${rows || '<div class="empty">（没有需要每日结算的国策——被动型在树即自动累计）</div>'}</div>
+        ${fzBlock}
         ${bfBlock}
         <div class="dlg-actions">
           <button data-act="ok">记下</button>
@@ -97,13 +113,15 @@ export function openSettleDialog(s: AppState): Promise<{ today: string[]; yester
         </div>
       </dialog>`);
 
-    const finish = wireLifecycle<{ today: string[]; yesterday: string[] } | null>(dlg, resolve);
+    const finish = wireLifecycle<{ today: string[]; yesterday: string[]; frozen: string[] } | null>(dlg, resolve);
     dlg.querySelector('[data-act="ok"]')?.addEventListener('click', () => {
       const today = Array.from(dlg.querySelectorAll<HTMLInputElement>('input[data-id]:checked'))
         .map((c) => c.dataset.id as string);
       const yesterday = Array.from(dlg.querySelectorAll<HTMLInputElement>('input[data-bfid]:checked'))
         .map((c) => c.dataset.bfid as string);
-      finish({ today, yesterday });
+      const frozen = Array.from(dlg.querySelectorAll<HTMLInputElement>('input[data-fid]:checked'))
+        .map((c) => c.dataset.fid as string);
+      finish({ today, yesterday, frozen });
     });
     dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => finish(null));
     show(dlg);
@@ -183,7 +201,7 @@ export function openPolicyDetail(s: AppState, id: string): Promise<'edit' | 'upg
     const dlg = el(`
       <dialog>
         <h3>${esc2(def.name)} · lv.${def.level}</h3>
-        <div class="hint">${kindLabel[def.kind]} · ${n?.daysTotal ?? 0} 天 · ${n?.alive ? (n.parent ? '树上（有父）' : '树上（独立根）') : '手牌'} · 建于 ${new Date(def.createdAt).toLocaleDateString()}</div>
+        <div class="hint">${kindLabel[def.kind]} · ${n?.daysTotal ?? 0} ${unitLabel(def)} · ${n?.alive ? (n.parent ? '树上（有父）' : '树上（独立根）') : '手牌'} · 建于 ${new Date(def.createdAt).toLocaleDateString()}</div>
         <div class="detail-block"><b>要求</b><br>${esc2(def.requirement)}</div>
         ${def.detail ? `<div class="detail-block detail-deco">${renderDetail(def.detail)}</div>` : ''}
         ${amends ? `<div class="detail-block"><b>修正条款</b>（判例提炼，仅显示修正）<br>${amends}</div>` : ''}
@@ -222,6 +240,7 @@ export function openEditPolicyDialog(s: AppState, id: string): Promise<Partial<P
             <option value="semi"${opt('semi')}>半被动型（锚定必然事件）</option>
             <option value="active"${opt('active')}>主动型（to-do 式，慎用）</option>
           </select>
+          <input id="ep-unit" value="${esc2(def.unit ?? '')}" maxlength="6" placeholder="凭证单位（可选，缺省按类型）" />
           <textarea id="ep-req" placeholder="要求全文">${esc2(def.requirement)}</textarea>
           <input id="ep-brief" value="${esc2(def.brief ?? '')}" maxlength="60" placeholder="卡片要点（可选）" />
           <textarea id="ep-detail" placeholder="详情装饰（可选）">${esc2(def.detail ?? '')}</textarea>
@@ -242,6 +261,7 @@ export function openEditPolicyDialog(s: AppState, id: string): Promise<Partial<P
         name,
         kind: val('#ep-kind') as PolicyKind,
         requirement,
+        unit: val('#ep-unit').trim() || undefined,
         brief: val('#ep-brief').trim() || undefined,
         detail: val('#ep-detail').trim() || undefined,
       });
@@ -300,6 +320,68 @@ export function openAmendDialog(): Promise<string | null> {
       if (text) finish(text);
     });
     dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => finish(null));
+    show(dlg);
+  });
+}
+
+/** 封舱（水密隔舱）：多选在树国策 + 理由（必填）+ 预期解封日（软约束，逾期仅提醒）。
+ *  preId：从卡片进入时预勾选该卡。资格判定走协议层（目前仅判例#1 医学豁免类），App 不裁。
+ *  resolve：{ ids, reason, expectedUntil? } 或 null */
+export function openFreezeDialog(s: AppState, v: PolicyView, preId: string): Promise<{ ids: string[]; reason: string; expectedUntil?: number } | null> {
+  return new Promise((resolve) => {
+    const cand = Object.keys(v.nodes).filter((id) => v.nodes[id].alive && v.nodes[id].frozenSince === null);
+    const rows = cand.map((id) => `<label class="settle-row">
+      <input type="checkbox" data-fid="${id}" ${id === preId ? 'checked' : ''} />
+      <span>${esc2(s.policies[id]?.name ?? id)}</span>
+    </label>`).join('');
+    const dlg = el(`
+      <dialog>
+        <h3>封舱（水密隔舱）</h3>
+        <div class="hint">不可抗力豁免：舱内结算义务暂停、等级与进度全保留；全局同时仅一舱。理由必填；预期解封日为软约束，逾期仅在每日结算时提醒。</div>
+        <div class="settle-list">${rows}</div>
+        <div class="form">
+          <input id="fz-reason" placeholder="理由（必填，如：手术住院）" maxlength="60" />
+          <input id="fz-until" type="date" title="预期解封日（可选，软约束）" />
+        </div>
+        <div class="dlg-actions">
+          <button data-act="ok">封舱</button>
+          <button class="cancel" data-act="cancel">取消</button>
+        </div>
+      </dialog>`);
+
+    const finish = wireLifecycle<{ ids: string[]; reason: string; expectedUntil?: number } | null>(dlg, resolve);
+    dlg.querySelector('[data-act="ok"]')?.addEventListener('click', () => {
+      const ids = Array.from(dlg.querySelectorAll<HTMLInputElement>('input[data-fid]:checked'))
+        .map((c) => c.dataset.fid as string);
+      const reason = (dlg.querySelector('#fz-reason') as HTMLInputElement).value.trim();
+      if (!ids.length || !reason) return;
+      const dv = (dlg.querySelector('#fz-until') as HTMLInputElement).value;
+      finish({ ids, reason, expectedUntil: dv ? new Date(dv + 'T12:00:00').getTime() : undefined });
+    });
+    dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => finish(null));
+    show(dlg);
+  });
+}
+
+/** 启封确认：逐条解封，互不等待。semi/active 无当日执行凭证时按钮禁用。resolve：true=启封 */
+export function openUnfreezeConfirm(s: AppState, v: PolicyView, id: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const n = v.nodes[id];
+    const def = s.policies[id];
+    const gate = !!n && n.kind !== 'passive' && !n.doneToday;
+    const dlg = el(`
+      <dialog>
+        <h3>启封 · ${esc2(def?.name ?? id)}</h3>
+        <div class="hint">舱内进度保留，启封后恢复计数${n?.kind === 'passive' ? '（被动型启封即在岗）' : '（当日执行凭证已计天）'}。${gate ? '<br><b>今日尚无执行凭证：请先在今日结算的「舱内」区块记执行。</b>' : ''}</div>
+        <div class="dlg-actions">
+          <button data-act="ok"${gate ? ' disabled' : ''}>启封</button>
+          <button class="cancel" data-act="cancel">再想想</button>
+        </div>
+      </dialog>`);
+
+    const finish = wireLifecycle<boolean>(dlg, resolve);
+    dlg.querySelector('[data-act="ok"]')?.addEventListener('click', () => finish(true));
+    dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => finish(false));
     show(dlg);
   });
 }

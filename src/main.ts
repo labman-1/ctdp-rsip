@@ -3,7 +3,7 @@
 
 import { load, append, replaceWith, loadUiChain, saveUiChain, addPolicy, updatePolicy, addChain } from './state';
 import { bookingState } from './logic/chain';
-import { policyView, canJoin } from './logic/policy';
+import { policyView, canJoin, canFreeze, canUnfreeze } from './logic/policy';
 import { canBackfillYesterday, backfillTs } from './logic/score';
 import { dayKey } from './logic/day';
 import { render } from './ui/render';
@@ -12,6 +12,7 @@ import { openVerdictDialog, openScoreDialog, openScoreLogDialog, openImportConfi
 import {
   openNewPolicyDialog, openSettleDialog, openJoinDialog,
   openCollapseConfirm, openPolicyDetail, openUpgradeDialog, openAmendDialog, openEditPolicyDialog,
+  openFreezeDialog, openUnfreezeConfirm,
 } from './ui/policyDialogs';
 import { startClock } from './ui/clock';
 import { setupPwa } from './pwa';
@@ -138,9 +139,10 @@ const handlers = {
     if (e) commit(e);
     if (!e) return;
     if (e.backfill) {
-      // 补录路径：同步补记"睡前评分"国策的昨日结算（名称含"评分"的非被动国策唯一时才询问，不做静默猜测）
+      // 补录路径：同步补记评分国策的昨日结算（按名匹配"评分/回响"的唯一非被动国策才询问，不做静默猜测；
+      // 只看名不看要求全文——避免"赢麻了"等锚定评分的国策因要求文本含"评分"而误中）
       const target = Object.entries(S.policies).filter(([, d]) =>
-        d.kind !== 'passive' && (d.name + d.requirement).includes('评分'));
+        d.kind !== 'passive' && (d.name.includes('评分') || d.name.includes('回响')));
       if (target.length === 1) {
         const yk = dayKey(e.ts);
         const already = S.events.some((x) => x.type === 'policy_done' && x.policyId === target[0][0] && dayKey(x.ts) === yk);
@@ -153,7 +155,7 @@ const handlers = {
     // 评分后的软引导：国策结算了吗（两个睡前仪式合一；passive 免结算，不数）
     if (Object.keys(S.policies).length > 0) {
       const v = policyView(S);
-      const unsettled = Object.values(v.nodes).filter((n) => n.alive && !n.doneToday && n.kind !== 'passive').length;
+      const unsettled = Object.values(v.nodes).filter((n) => n.alive && !n.doneToday && n.kind !== 'passive' && n.frozenSince == null).length;
       if (unsettled > 0) {
         setTimeout(() => {
           if (confirm(`还有 ${unsettled} 条在树国策今日未结算，现在结算吗？`)) {
@@ -179,9 +181,13 @@ const policyHandlers = {
     const r = await openSettleDialog(S);
     if (!r) return;
     // 与当前 doneToday 对比：补记新增的 done（不支持撤销当日 done——如实记录）；
-    // 补昨晚部分打昨日 23:30（日界归属正确，今日结算位不受影响）
+    // 补昨晚部分打昨日 23:30（日界归属正确，今日结算位不受影响）；
+    // 舱内执行照记 done（计天，与手牌期执行计入原则一致，兼作启封门槛）
     const v = policyView(S);
-    const news = r.today.filter((id) => !v.nodes[id]?.doneToday);
+    const news = [
+      ...r.today.filter((id) => !v.nodes[id]?.doneToday),
+      ...r.frozen.filter((id) => !v.nodes[id]?.doneToday),
+    ];
     const evs = [
       ...news.map((id) => ({ ts: Date.now(), type: 'policy_done' as const, policyId: id })),
       ...r.yesterday.map((id) => ({ ts: backfillTs(Date.now()), type: 'policy_done' as const, policyId: id })),
@@ -214,6 +220,26 @@ const policyHandlers = {
     if (await openCollapseConfirm(S, v, id)) {
       S = append(S, { ts: Date.now(), type: 'policy_fail', policyId: id });
       rerender();
+    }
+  },
+  onFreeze: async (id: string) => {
+    const v = policyView(S);
+    const gate = canFreeze(v);
+    if (!gate.ok) { alert(gate.reason ?? '当前不可封舱'); return; }
+    const r = await openFreezeDialog(S, v, id);
+    if (!r) return;
+    const ts = Date.now();
+    S = append(S, ...r.ids.map((pid) => ({
+      ts, type: 'policy_freeze' as const, policyId: pid, note: r.reason, expectedUntil: r.expectedUntil,
+    })));
+    rerender();
+  },
+  onUnfreeze: async (id: string) => {
+    const v = policyView(S);
+    const gate = canUnfreeze(v, id);
+    if (!gate.ok) { alert(gate.reason ?? '当前不可启封'); return; }
+    if (await openUnfreezeConfirm(S, v, id)) {
+      commit({ ts: Date.now(), type: 'policy_unfreeze', policyId: id });
     }
   },
   onDetail: async (id: string) => {

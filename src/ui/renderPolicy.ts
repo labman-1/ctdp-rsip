@@ -2,7 +2,7 @@
 // 树的力学（父子/连坐/末梢）用缩进与左边线表达，不做画布。
 
 import type { AppState } from '../types';
-import { policyView, canJoin, type PolicyView } from '../logic/policy';
+import { policyView, canJoin, canUnfreeze, unitLabel, type PolicyView } from '../logic/policy';
 
 export interface PolicyHandlers {
   onSwitchTab(tab: 'chain' | 'policy'): void;
@@ -10,6 +10,8 @@ export interface PolicyHandlers {
   onSettle(): void;
   onJoin(id: string): void;
   onCollapse(id: string): void;
+  onFreeze(id: string): void;
+  onUnfreeze(id: string): void;
   onDetail(id: string): void;
 }
 
@@ -31,20 +33,25 @@ function cardRow(s: AppState, v: PolicyView, id: string, depth: number): string 
         <span class="policy-tags">
           <span class="tag kind-${def.kind}">${KIND_LABEL[def.kind]}</span>
           <span class="tag">lv.${def.level}</span>
-          <span class="tag">${n.daysTotal}天</span>
-          ${n.alive
-            ? (def.kind === 'passive'
-                ? '<span class="tag kind-passive">在岗</span>'
-                : n.doneToday ? '<span class="tag done">今日✓</span>' : '<span class="tag todo">今日未结算</span>')
-            : ''}
+          <span class="tag">${n.daysTotal}${unitLabel(def)}</span>
+          ${n.frozenSince !== null
+            ? '<span class="tag">舱内</span>'
+            : n.alive
+              ? (def.kind === 'passive'
+                  ? '<span class="tag kind-passive">在岗</span>'
+                  : n.doneToday ? '<span class="tag done">今日✓</span>' : '<span class="tag todo">今日未结算</span>')
+              : ''}
         </span>
       </div>
       ${def.brief ? `<div class="policy-brief">${esc(def.brief)}</div>` : ''}
       <div class="policy-ops">
         <button class="mini" data-detail="${id}">详情</button>
-        ${!n.alive
-          ? `<button class="mini${joinable.ok ? '' : ' dim'}" data-join="${id}">上树</button>`
-          : `<button class="mini danger" data-collapse="${id}">熄灭</button>`}
+        ${n.frozenSince !== null
+          ? `<button class="mini${canUnfreeze(v, id).ok ? '' : ' dim'}" data-unfreeze="${id}">启封</button>`
+          : n.alive
+            ? `<button class="mini" data-freeze="${id}">封舱</button>
+               <button class="mini danger" data-collapse="${id}">熄灭</button>`
+            : `<button class="mini${joinable.ok ? '' : ' dim'}" data-join="${id}">上树</button>`}
       </div>
     </div>`;
 }
@@ -66,7 +73,7 @@ export function renderPolicy(root: HTMLElement, s: AppState, h: PolicyHandlers, 
   root.innerHTML = `
     <div class="topbar">
       <span>国策树 · RSIP</span>
-      <span>今日配额 ${v.joinsToday >= 1 ? '已用' : '可用'}</span>
+      <span>今日配额 ${v.joinsToday >= 1 ? '已用' : '可用'}${v.frozen.length > 0 ? ` · 舱内 ${v.frozen.length}` : ''}</span>
     </div>
 
     <div class="actions" style="margin-top:14px">
@@ -101,6 +108,10 @@ export function renderPolicy(root: HTMLElement, s: AppState, h: PolicyHandlers, 
     b.addEventListener('click', () => h.onJoin(b.dataset.join ?? '')));
   root.querySelectorAll<HTMLButtonElement>('[data-collapse]').forEach((b) =>
     b.addEventListener('click', () => h.onCollapse(b.dataset.collapse ?? '')));
+  root.querySelectorAll<HTMLButtonElement>('[data-freeze]').forEach((b) =>
+    b.addEventListener('click', () => h.onFreeze(b.dataset.freeze ?? '')));
+  root.querySelectorAll<HTMLButtonElement>('[data-unfreeze]').forEach((b) =>
+    b.addEventListener('click', () => h.onUnfreeze(b.dataset.unfreeze ?? '')));
   root.querySelectorAll<HTMLButtonElement>('[data-detail]').forEach((b) =>
     b.addEventListener('click', () => h.onDetail(b.dataset.detail ?? '')));
 }

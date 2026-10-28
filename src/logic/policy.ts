@@ -13,9 +13,16 @@
 // fail 连坐按"事件发生时的树结构"计算（正序扫描中维护父子边）。
 // ─────────────────────────────────────────────────────────────
 
-import type { AppState, PolicyKind } from '../types';
+import type { AppState, PolicyDef, PolicyKind } from '../types';
 import { dayKey, daysBetween } from './day';
 import { backfillWindowOpen } from './score';
+
+/** 计数单位显示名：覆写优先，否则按类型推导——被动/半被动凭证按日（天），主动型按行为（次） */
+const UNIT_DEFAULT: Record<PolicyKind, string> = { passive: '天', semi: '天', active: '次' };
+
+export function unitLabel(def: Pick<PolicyDef, 'kind' | 'unit'>): string {
+  return def.unit?.trim() || UNIT_DEFAULT[def.kind];
+}
 
 export interface PolicyNode {
   id: string;
@@ -30,6 +37,12 @@ export interface PolicyNode {
   daysTotal: number;
   /** 今日是否已结算（凭证存在）；passive 恒 false 且无人消费 */
   doneToday: boolean;
+  /** 封舱中（水密隔舱豁免期）：结算义务暂停；passive 存续区间同时停计 */
+  frozenSince: number | null;
+  /** 封舱理由（freeze 事件的 note） */
+  frozenReason?: string;
+  /** 预期解封日（软约束——逾期进 freezeOverdue，结算时提醒） */
+  frozenExpectedUntil?: number;
   children: string[];
 }
 
@@ -41,13 +54,17 @@ export interface PolicyView {
   hand: string[];
   /** 今日 join+revive 次数（全局配额上限 1） */
   joinsToday: number;
+  /** 当前在舱（freeze 未启封）的国策；全局单舱规则的判定依据 */
+  frozen: string[];
+  /** 已过预期解封日仍在舱的（软提醒） */
+  freezeOverdue: string[];
 }
 
 export function policyView(s: AppState, now = Date.now()): PolicyView {
   const today = dayKey(now);
   const nodes: Record<string, PolicyNode> = {};
   for (const id of Object.keys(s.policies)) {
-    nodes[id] = { id, kind: s.policies[id].kind, parent: null, alive: false, onTreeSince: null, daysTotal: 0, doneToday: false, children: [] };
+    nodes[id] = { id, kind: s.policies[id].kind, parent: null, alive: false, onTreeSince: null, daysTotal: 0, doneToday: false, frozenSince: null, children: [] };
   }
   const daySets = new Map<string, Set<string>>();
   let joinsToday = 0;
@@ -77,6 +94,7 @@ export function policyView(s: AppState, now = Date.now()): PolicyView {
         n.parent = e.parent ?? null;
         n.alive = true;
         n.onTreeSince = e.ts;
+        n.frozenSince = null; // 防御：重复上树若发生在舱内，先出舱再上树
         if (n.parent && nodes[n.parent]) nodes[n.parent].children.push(e.policyId);
         if (dayKey(e.ts) === today) joinsToday += 1;
         break;
@@ -90,6 +108,26 @@ export function policyView(s: AppState, now = Date.now()): PolicyView {
         if (k === today) n.doneToday = true;
         break;
       }
+      case 'policy_freeze': {
+        // 封舱：结算义务暂停；passive 先清算舱前存续段（[join, freeze) 含头不含尾，与 fail 清算同约定）
+        if (n.kind === 'passive' && n.onTreeSince !== null) {
+          n.daysTotal += daysBetween(n.onTreeSince, e.ts);
+        }
+        n.frozenSince = e.ts;
+        n.frozenReason = e.note;
+        n.frozenExpectedUntil = e.expectedUntil;
+        break;
+      }
+      case 'policy_unfreeze': {
+        // 启封（逐条进行，互不等待）：passive 以启封日为新段起点（恢复当日即在岗——判例#1 末梢语义）
+        if (n.frozenSince !== null) {
+          if (n.kind === 'passive' && n.alive) n.onTreeSince = e.ts;
+          n.frozenSince = null;
+          n.frozenReason = undefined;
+          n.frozenExpectedUntil = undefined;
+        }
+        break;
+      }
       case 'policy_fail': {
         // 堆栈熄灭：按当时的父子边传递，全部回手牌
         const stack: string[] = [e.policyId];
@@ -100,6 +138,9 @@ export function policyView(s: AppState, now = Date.now()): PolicyView {
           detach(cur);
           m.alive = false;
           m.doneToday = false;
+          m.frozenSince = null; // 出舱路径之一：熄灭下树（正常应先启封，此处防御异常序列）
+          m.frozenReason = undefined;
+          m.frozenExpectedUntil = undefined;
           // passive 清算当前存续段（[join, fail) 含头不含尾）；onTreeSince 故意不清——
           // 它兼作"曾上过树"标记（main 据此区分 revive）
           if (m.kind === 'passive' && m.onTreeSince !== null) {
@@ -117,16 +158,22 @@ export function policyView(s: AppState, now = Date.now()): PolicyView {
 
   const hand: string[] = [];
   const roots: string[] = [];
+  const frozen: string[] = [];
+  const freezeOverdue: string[] = [];
   for (const id of Object.keys(nodes)) {
     const n = nodes[id];
-    // passive 当前段实时累计（含上树日与今日）——打开 App 即自动更新，无需任何事件
-    if (n.kind === 'passive' && n.alive && n.onTreeSince !== null) {
+    if (n.frozenSince !== null) {
+      frozen.push(id);
+      if (n.frozenExpectedUntil !== undefined && n.frozenExpectedUntil < now) freezeOverdue.push(id);
+    }
+    // passive 当前段实时累计（含上树日与今日）——打开 App 即自动更新，无需任何事件；舱内停计
+    if (n.kind === 'passive' && n.alive && n.onTreeSince !== null && n.frozenSince === null) {
       n.daysTotal += daysBetween(n.onTreeSince, now) + 1;
     }
     if (!n.alive) hand.push(id);
     else if (n.parent === null) roots.push(id);
   }
-  return { nodes, roots, hand, joinsToday };
+  return { nodes, roots, hand, joinsToday, frozen, freezeOverdue };
 }
 
 /** 堆栈熄灭的连坐清单：fail(id) 将熄灭的节点（含自身）——用于确认弹窗的威慑可视化 */
@@ -156,6 +203,22 @@ export function isLeaf(view: PolicyView, id: string): boolean {
   return (view.nodes[id]?.children.length ?? 0) === 0;
 }
 
+/** 封舱门槛：全局同时仅一舱——舱未清空（全部启封）前不可再次封舱 */
+export function canFreeze(view: PolicyView): { ok: boolean; reason?: string } {
+  if (view.frozen.length > 0) return { ok: false, reason: '舱未清空：全部启封后才能再次封舱' };
+  return { ok: true };
+}
+
+/** 启封门槛（逐条解封，互不等待）：semi/active 需当日执行凭证（证明恢复）；passive 无行为门槛，启封即在岗 */
+export function canUnfreeze(view: PolicyView, id: string): { ok: boolean; reason?: string } {
+  const n = view.nodes[id];
+  if (!n || n.frozenSince === null) return { ok: false, reason: '该国策不在舱内' };
+  if (n.kind !== 'passive' && !n.doneToday) {
+    return { ok: false, reason: '启封需当日执行凭证：先在今日结算的「舱内」区块记执行' };
+  }
+  return { ok: true };
+}
+
 /** 补昨晚结算候选：窗口内（今日 4:00–12:00）昨日 dayKey 无 done 的非被动国策。
  *  与评分补录共用窗口语义（过午即关，防事后补写）；补记 ts 由调用方用 backfillTs 打昨日 23:30。 */
 export function backfillCandidates(s: AppState, now = Date.now()): string[] {
@@ -165,5 +228,14 @@ export function backfillCandidates(s: AppState, now = Date.now()): string[] {
   for (const e of s.events) {
     if (e.type === 'policy_done' && e.policyId && dayKey(e.ts) === yk) settled.add(e.policyId);
   }
-  return Object.keys(s.policies).filter((id) => s.policies[id].kind !== 'passive' && !settled.has(id));
+  // 舱内国策昨日无结算义务，不入候选
+  const frozen = new Set<string>();
+  for (const e of s.events) {
+    if (!e.policyId) continue;
+    if (e.type === 'policy_freeze') frozen.add(e.policyId);
+    else if (e.type === 'policy_unfreeze') frozen.delete(e.policyId);
+  }
+  return Object.keys(s.policies).filter(
+    (id) => s.policies[id].kind !== 'passive' && !settled.has(id) && !frozen.has(id),
+  );
 }

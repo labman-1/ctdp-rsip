@@ -21,6 +21,8 @@ export type EventType =
   | 'policy_done'    // 国策当日执行成功（凭证 + 内化天数计数）
   | 'policy_fail'    // 国策违例：堆栈熄灭（节点连同全部子孙回手牌）
   | 'policy_revive'  // 从手牌重上末梢（占用每日配额）
+  | 'policy_freeze'  // 封舱（水密隔舱）：不可抗力豁免期开始，结算义务暂停（全局同时仅一舱）
+  | 'policy_unfreeze' // 启封：豁免期结束恢复计数（semi/active 需当日执行凭证；passive 直接在岗）
   | 'policy_upgrade'; // lv 变更历史（当前 lv 存 state）
 
 export interface ChainEvent {
@@ -45,6 +47,8 @@ export interface ChainEvent {
   readonly parent?: string | null;
   /** policy_upgrade：变更后的 lv */
   readonly newLevel?: number;
+  /** policy_freeze：预期解封日（软约束——逾期仅在每日结算时提醒，不强制） */
+  readonly expectedUntil?: number;
 }
 
 /** 国策类型（原文三分法：被动 > 半被动 > 主动，维护成本递增） */
@@ -63,6 +67,9 @@ export interface PolicyDef {
   brief?: string;
   /** 详情页装饰（自由文本 + emoji + 图片 URL；localStorage 只存 URL 不存图片本体） */
   detail?: string;
+  /** 凭证计量单位的显示名（如 '晚' / '节点' / '入座天'）。
+   *  计量单位属于国策定义（数据）而非渲染逻辑（代码）；缺省按类型推导（见 logic/policy.ts 的 unitLabel） */
+  unit?: string;
   /** 修正条款（判例提炼的成文法；verdictRef 可关联判例事件时间戳） */
   amendments?: Array<{ text: string; date: number; verdictRef?: number }>;
 }
