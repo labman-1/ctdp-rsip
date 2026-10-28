@@ -19,6 +19,9 @@ export interface ScoreEntry {
   note?: string;
   /** 次日补录的评分（时间戳已落在昨晚日界内） */
   backfill?: boolean;
+  /** 赢麻了（G6）：今日最大喜报命名与定级（随评分事件入档） */
+  winName?: string;
+  winTier?: string;
 }
 
 /** 旧 5 分制 → 新 10 分制的锚点语义映射：1→2（后悔）、3→5（平静）、5→8（满足），线性插值对齐 0.5 步进 */
@@ -31,7 +34,7 @@ export function scoreHistory(s: AppState): ScoreEntry[] {
   for (const e of s.events) {
     if (e.type === 'score' && e.score !== undefined) {
       const v = e.scale === 10 ? e.score : legacyTo10(e.score);
-      out.push({ ts: e.ts, score: v, note: e.note, backfill: e.backfill });
+      out.push({ ts: e.ts, score: v, note: e.note, backfill: e.backfill, winName: e.winName, winTier: e.winTier });
     }
   }
   return out;
@@ -49,12 +52,17 @@ export function todayScore(s: AppState, now = Date.now()): ScoreEntry | null {
   return found;
 }
 
-/** 最近 7 天（含今日）的均分，无数据返回 null */
+/** 最近 7 天（含今日）的均分——同日多次评分（修正）以该日最后一次为准（与 todayScore 同语义），无数据返回 null */
 export function averageLast7(s: AppState, now = Date.now()): number | null {
   const cutoff = now - 7 * 24 * 3600 * 1000;
-  const list = scoreHistory(s).filter((e) => e.ts >= cutoff);
-  if (list.length === 0) return null;
-  return list.reduce((acc, e) => acc + e.score, 0) / list.length;
+  const byDay = new Map<string, number>();
+  for (const e of scoreHistory(s)) {
+    if (e.ts < cutoff) continue;
+    byDay.set(dayKey(e.ts), e.score); // 后写覆盖 → 每日取最新
+  }
+  if (byDay.size === 0) return null;
+  const vals = [...byDay.values()];
+  return vals.reduce((acc, v) => acc + v, 0) / vals.length;
 }
 
 // ── 补昨晚（backfill）：两段式漏评补救的后半段 ──

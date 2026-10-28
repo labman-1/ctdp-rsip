@@ -40,6 +40,10 @@ export interface ChainEvent {
   readonly backfill?: boolean;
   /** 附注（失败原因、复盘一句话等） */
   readonly note?: string;
+  /** score：赢麻了（G6）——今日最大喜报的命名 */
+  readonly winName?: string;
+  /** score：赢麻了（G6）——定级：大赢/中赢/小赢/平（选中即自动记该国策执行） */
+  readonly winTier?: string;
   // ── 国策事件字段 ──
   /** 国策 id */
   readonly policyId?: string;

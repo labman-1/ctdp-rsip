@@ -4,7 +4,7 @@
 import { load, append, replaceWith, loadUiChain, saveUiChain, addPolicy, updatePolicy, addChain } from './state';
 import { bookingState } from './logic/chain';
 import { policyView, canJoin, canFreeze, canUnfreeze, baseRequirement } from './logic/policy';
-import { canBackfillYesterday, backfillTs } from './logic/score';
+import { canBackfillYesterday, backfillTs, todayScore } from './logic/score';
 import { dayKey } from './logic/day';
 import { render } from './ui/render';
 import { renderPolicy } from './ui/renderPolicy';
@@ -135,9 +135,20 @@ const handlers = {
     if (e) commit(e);
   },
   onScore: async () => {
-    const e = await openScoreDialog({ canBackfill: canBackfillYesterday(S) });
+    // 同日再评 = 显式修正（append-only：旧分留在事件流，显示与统计以最新为准）——确认前置，防误触双评
+    const already = todayScore(S);
+    if (already && !confirm(`今日已评 ${already.score} 分。再次评分视为修正（旧分保留在事件流，显示与统计以最新为准），继续？`)) return;
+    // 赢麻了（G6）内嵌评分弹窗：存在该国策才显示喜报区；定级即自动记执行（supplyBy:'score' 首次落地）
+    const winId = Object.keys(S.policies).find((id) => S.policies[id].name.includes('赢麻了'));
+    const e = await openScoreDialog({ canBackfill: canBackfillYesterday(S), showWin: winId !== undefined });
     if (e) commit(e);
     if (!e) return;
+    if (e.winTier && winId) {
+      const ts = e.backfill ? e.ts : Date.now();
+      const k = dayKey(ts);
+      const done = S.events.some((x) => x.type === 'policy_done' && x.policyId === winId && dayKey(x.ts) === k);
+      if (!done) commit({ ts, type: 'policy_done', policyId: winId });
+    }
     if (e.backfill) {
       // 补录路径：同步补记评分国策的昨日结算（按名匹配"评分/回响"的唯一非被动国策才询问，不做静默猜测；
       // 只看名不看要求全文——避免"赢麻了"等锚定评分的国策因要求文本含"评分"而误中）

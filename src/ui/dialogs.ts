@@ -58,9 +58,11 @@ export function openVerdictDialog(chainId: string, mode: 'now' | 'amend' = 'now'
 
 /** 睡前评分弹窗 — G1 根国策。0-10 分制，0.5 步进（滑块）。
  *  canBackfill：补录窗口开且昨晚未评时，提供"补昨晚"开关（时间记为昨晚 23:30，带补录标记）。
+ *  showWin：存在"赢麻了"国策时显示喜报区（定级即由调用方自动记该国策执行——supplyBy:'score' 落地）。
  *  resolve：score 事件或 null */
-export function openScoreDialog(opts: { canBackfill?: boolean } = {}): Promise<ChainEvent | null> {
+export function openScoreDialog(opts: { canBackfill?: boolean; showWin?: boolean } = {}): Promise<ChainEvent | null> {
   const bf = opts.canBackfill === true;
+  const win = opts.showWin === true;
   return new Promise((resolve) => {
     const dlg = el(`
       <dialog>
@@ -73,6 +75,18 @@ export function openScoreDialog(opts: { canBackfill?: boolean } = {}): Promise<C
           <div class="score-marks"><span>0</span><span>2</span><span>5</span><span>8</span><span>10</span></div>
         </div>
         <textarea placeholder="一句话（建议引用一个事实而非评判）：今天下午打了一个节点"></textarea>
+        ${win ? `
+        <div class="settle-bf">
+          <div class="bf-hint">赢麻了 · 今日最大喜报（定级即自动记执行，无喜报选"平"）</div>
+          <input id="win-name" placeholder="喜报名（可选，如：搞定高数第三章）" maxlength="40" />
+          <select id="win-tier">
+            <option value="">— 跳过（漏=漏，不算失败）—</option>
+            <option value="平">平（无喜报）</option>
+            <option value="小赢">小赢</option>
+            <option value="中赢">中赢</option>
+            <option value="大赢">大赢</option>
+          </select>
+        </div>` : ''}
         <div class="dlg-actions">
           <button data-act="ok">记下</button>
           <button class="cancel" data-act="cancel">取消</button>
@@ -87,9 +101,12 @@ export function openScoreDialog(opts: { canBackfill?: boolean } = {}): Promise<C
     dlg.querySelector('[data-act="ok"]')?.addEventListener('click', () => {
       const note = (dlg.querySelector('textarea') as HTMLTextAreaElement).value.trim();
       const isBf = bf && (dlg.querySelector('#bf-check') as HTMLInputElement | null)?.checked === true;
+      const winName = win ? (dlg.querySelector('#win-name') as HTMLInputElement).value.trim() : '';
+      const winTier = win ? (dlg.querySelector('#win-tier') as HTMLSelectElement).value : '';
+      const winFields = { winName: winName || undefined, winTier: winTier || undefined };
       finish(isBf
-        ? { ts: backfillTs(Date.now()), type: 'score', score: picked, scale: 10, note: note || undefined, backfill: true }
-        : { ts: Date.now(), type: 'score', score: picked, scale: 10, note: note || undefined });
+        ? { ts: backfillTs(Date.now()), type: 'score', score: picked, scale: 10, note: note || undefined, backfill: true, ...winFields }
+        : { ts: Date.now(), type: 'score', score: picked, scale: 10, note: note || undefined, ...winFields });
     });
     dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => finish(null));
 
@@ -111,7 +128,7 @@ export function openScoreLogDialog(s: AppState): Promise<void> {
     const rows = hist.length === 0
       ? '<div class="empty">（还没有评分记录）</div>'
       : hist.map((e) =>
-          `<div class="row"><span class="t">${fmtTime(e.ts)}</span><span>${e.backfill ? '<span class="bfmark" title="次日补录（回忆分）">补</span> ' : ''}<b>${e.score.toFixed(1)}</b>${e.note ? ` · ${esc(e.note)}` : ''}</span></div>`).join('');
+          `<div class="row"><span class="t">${fmtTime(e.ts)}</span><span>${e.backfill ? '<span class="bfmark" title="次日补录（回忆分）">补</span> ' : ''}<b>${e.score.toFixed(1)}</b>${e.note ? ` · ${esc(e.note)}` : ''}${e.winTier ? ` · 赢麻了${e.winName ? `「${esc(e.winName)}」` : ''}（${esc(e.winTier)}）` : ''}</span></div>`).join('');
     const dlg = el(`
       <dialog>
         <h3>评分日志</h3>

@@ -61,6 +61,19 @@ describe('score 派生（0-10 分制视图）', () => {
     expect(averageLast7(s, now)).toBeCloseTo(6.25);
   });
 
+  it('averageLast7 同日修正：该日以最后一次为准（与 todayScore 同语义，旧分不计入均分）', () => {
+    const now = t;
+    const s: AppState = {
+      version: 1, policies: {}, chains: {},
+      events: [
+        { ts: now - 2 * 24 * 3600 * 1000, type: 'score', score: 4, scale: 10 },
+        { ts: now - 2 * 24 * 3600 * 1000 + 60000, type: 'score', score: 8, scale: 10 }, // 同日修正 4→8
+        { ts: now - 1 * 24 * 3600 * 1000, type: 'score', score: 6, scale: 10 },
+      ],
+    };
+    expect(averageLast7(s, now)).toBeCloseTo(7); // (8+6)/2，而非 (4+8+6)/3
+  });
+
   it('dayKey 以凌晨 4:00 为日界（二游式刷新）', () => {
     expect(dayKey(new Date(2026, 8, 16, 23, 30).getTime())).toBe('2026-09-16'); // 深夜仍算当天
     expect(dayKey(new Date(2026, 8, 17, 0, 30).getTime())).toBe('2026-09-16');  // 过了午夜但未过 4 点 → 前一天
