@@ -219,6 +219,18 @@ export function canUnfreeze(view: PolicyView, id: string): { ok: boolean; reason
   return { ok: true };
 }
 
+/** lv.1（原始版）要求文本：仅当该国策首个升级事件是 lv.1→lv.2 且带改前快照时才可信
+ *  （存量升级事件无快照 → null，v1.11 清级时提示手动编辑——宁可手动，不可错还原） */
+export function baseRequirement(s: AppState, id: string): string | null {
+  let first = true;
+  for (const e of s.events) {
+    if (e.type !== 'policy_upgrade' || e.policyId !== id) continue;
+    if (first && e.newLevel === 2 && e.prevReq) return e.prevReq;
+    first = false;
+  }
+  return null;
+}
+
 /** 补昨晚结算候选：窗口内（今日 4:00–12:00）昨日 dayKey 无 done 的非被动国策。
  *  与评分补录共用窗口语义（过午即关，防事后补写）；补记 ts 由调用方用 backfillTs 打昨日 23:30。 */
 export function backfillCandidates(s: AppState, now = Date.now()): string[] {

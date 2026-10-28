@@ -81,8 +81,11 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
   const verdicts = verdictList(s, currentId);
   // 本链事件（含预约链）+ 评分（全局睡前仪式，跨链可见）；国策事件属国策 tab 语义域，不在此显示。
   // 全量事件流（后台总库）不因视图过滤而变化，导出永远为全量。
+  // 本链事件（含预约链），严格按链过滤。评分与国策事件各有语义域：
+  // 评分回看=上方"日志"按钮（评分日志弹窗）；国策事件=国策 tab。
+  // 全量事件流（后台总库）不因视图过滤而变化，导出永远为全量。
   const chainEvents = [...s.events].reverse().filter((e) =>
-    e.type === 'score' || (e.chain !== undefined && (e.chain === currentId || e.chain === currentId + '预约')));
+    e.chain !== undefined && (e.chain === currentId || e.chain === currentId + '预约'));
   const recent = chainEvents.slice(0, 60);
 
   root.innerHTML = `
@@ -128,7 +131,6 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
       <div class="itemlist">${
         recent.map((e) => {
           const extra = e.type === 'verdict' && e.verdictText ? `：${e.verdictText}`
-            : e.type === 'score' ? ` ${e.score}${e.note ? ` · ${e.note}` : ''}`
             : e.note ? `：${e.note}` : '';
           const amend = e.type === 'done' && e.chain
             ? `<span class="amend" data-chain="${esc(e.chain)}">补判</span>` : '';

@@ -159,25 +159,37 @@ export function openJoinDialog(s: AppState, v: PolicyView, id: string): Promise<
   });
 }
 
-/** 熄灭确认：显示连坐清单（威慑可视化）。resolve：true=确认熄灭 */
-export function openCollapseConfirm(s: AppState, v: PolicyView, id: string): Promise<boolean> {
+/** 熄灭裁决（v1.11 释放退回）：判失败=确定性处置（有等级自动清级回原始版并留树；原始版失败熄灭下树）；
+ *  结构性下树=清级+熄灭（重上从原始版开始）。连坐清单威慑可视化。resolve：{ kind } 或 null */
+export function openCollapseConfirm(s: AppState, v: PolicyView, id: string): Promise<{ kind: 'fail' | 'structural' } | null> {
   return new Promise((resolve) => {
     const list = collapseList(v, id);
     const names = list.map((pid) => `【${s.policies[pid]?.name ?? pid}】`).join('、');
+    const lv = s.policies[id]?.level ?? 1;
+    const failHint = lv > 1
+      ? `当前 lv.${lv} → <b>自动清级回 lv.1（原始版）、留在树上</b>，定义恢复 lv.1 文本（若有记录）`
+      : `已是原始版（lv.1）→ <b>熄灭下树</b>${list.length > 1 ? '，子孙连坐' : ''}，内化天数保留`;
+    const structHint = lv > 1
+      ? `清级回 lv.1 + 熄灭下树（重上从原始版开始）`
+      : `熄灭下树${list.length > 1 ? '，子孙连坐' : ''}，内化天数保留`;
     const dlg = el(`
       <dialog>
-        <h3>堆栈熄灭 · 确认</h3>
-        <div class="hint">将同时熄灭：${esc2(names)}${list.length > 1 ? '<br><b>子孙连坐，瞬间损失多日积累。</b>' : ''}<br>
-        熄灭 = 回手牌（内化天数保留），重新上树只能从末梢。也可先裁决：这次违例是否其实"判允许"（记判例，不熄灭）？</div>
+        <h3>熄灭裁决 · ${esc2(s.policies[id]?.name ?? id)}</h3>
+        <div class="hint">涉及节点：${esc2(names)}${list.length > 1 ? '（子孙连坐）' : ''}<br><br>
+        <b>判失败</b>（违例/破约，v1.11 确定性处置）：${failHint}<br>
+        <b>结构性下树</b>（重设计/退役）：${structHint}<br><br>
+        也可先裁决这次违例是否其实"判允许"（记判例，不熄灭）。</div>
         <div class="dlg-actions">
-          <button class="danger" data-act="ok">确认熄灭（${list.length} 个节点）</button>
+          <button class="danger" data-act="fail">判失败（v1.11 处置）</button>
+          <button class="danger" data-act="struct">结构性下树</button>
           <button class="cancel" data-act="cancel">再想想</button>
         </div>
       </dialog>`);
 
-    const finish = wireLifecycle<boolean>(dlg, resolve);
-    dlg.querySelector('[data-act="ok"]')?.addEventListener('click', () => finish(true));
-    dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => finish(false));
+    const finish = wireLifecycle<{ kind: 'fail' | 'structural' } | null>(dlg, resolve);
+    dlg.querySelector('[data-act="fail"]')?.addEventListener('click', () => finish({ kind: 'fail' }));
+    dlg.querySelector('[data-act="struct"]')?.addEventListener('click', () => finish({ kind: 'structural' }));
+    dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => finish(null));
     show(dlg);
   });
 }
@@ -271,16 +283,19 @@ export function openEditPolicyDialog(s: AppState, id: string): Promise<Partial<P
   });
 }
 
-/** 升级。resolve：{level, note} 或 null */
-export function openUpgradeDialog(curLevel: number): Promise<{ level: number; note?: string } | null> {
+/** 升级：固定 lv.N → lv.N+1（禁跳级——跳级走下必为例特批）；依据必填；
+ *  该级要求全文预填现行文本（只改需变处），提交即成为新定义。
+ *  改前文本由调用方自动快照入事件。resolve：{ note, requirement } 或 null */
+export function openUpgradeDialog(curLevel: number, curRequirement: string): Promise<{ note: string; requirement: string } | null> {
   return new Promise((resolve) => {
     const dlg = el(`
       <dialog>
-        <h3>升级（lv.${curLevel} → ?）</h3>
-        <div class="hint">可升级国策：升级凭证据不凭雄心（如"数日实践成功"）。支持降级（失败回退，不算熄灭）。</div>
+        <h3>升级（lv.${curLevel} → lv.${curLevel + 1}）</h3>
+        <div class="hint">升级凭证据不凭雄心。提交后国策定义自动更新为该级要求；失败按 v1.11 自动清级回 lv.1（原始版）。</div>
         <div class="form">
-          <input id="up-level" type="number" min="1" max="9" value="${curLevel + 1}" />
-          <textarea id="up-note" placeholder="依据（可选）：如 lv.1 连续 7 天无违例"></textarea>
+          <input id="up-note" placeholder="依据（必填）：如 lv.2 在岗 21 天零违例" maxlength="60" />
+          <div class="bf-hint">lv.${curLevel + 1} 要求全文（已预填现行文本，只改需变处）</div>
+          <textarea id="up-req">${esc2(curRequirement)}</textarea>
         </div>
         <div class="dlg-actions">
           <button data-act="ok">记下</button>
@@ -288,12 +303,12 @@ export function openUpgradeDialog(curLevel: number): Promise<{ level: number; no
         </div>
       </dialog>`);
 
-    const finish = wireLifecycle<{ level: number; note?: string } | null>(dlg, resolve);
+    const finish = wireLifecycle<{ note: string; requirement: string } | null>(dlg, resolve);
     dlg.querySelector('[data-act="ok"]')?.addEventListener('click', () => {
-      const level = Number((dlg.querySelector('#up-level') as HTMLInputElement).value);
-      if (!Number.isFinite(level) || level < 1) return;
-      const note = (dlg.querySelector('#up-note') as HTMLTextAreaElement).value.trim();
-      finish({ level, note: note || undefined });
+      const note = (dlg.querySelector('#up-note') as HTMLInputElement).value.trim();
+      const requirement = (dlg.querySelector('#up-req') as HTMLTextAreaElement).value.trim();
+      if (!note || !requirement) return;
+      finish({ note, requirement });
     });
     dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => finish(null));
     show(dlg);

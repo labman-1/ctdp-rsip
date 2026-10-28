@@ -49,6 +49,10 @@ export interface ChainEvent {
   readonly newLevel?: number;
   /** policy_freeze：预期解封日（软约束——逾期仅在每日结算时提醒，不强制） */
   readonly expectedUntil?: number;
+  /** policy_upgrade：该级要求全文快照（升级弹窗 v2 起记录——"等级→条款"台账，v1.11 清级恢复的依据） */
+  readonly requirement?: string;
+  /** policy_upgrade：改前要求文本快照（自动记录，血缘完整；首个 lv.1→lv.2 事件的此字段即原始版文本） */
+  readonly prevReq?: string;
 }
 
 /** 国策类型（原文三分法：被动 > 半被动 > 主动，维护成本递增） */

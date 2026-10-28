@@ -3,7 +3,7 @@
 
 import { load, append, replaceWith, loadUiChain, saveUiChain, addPolicy, updatePolicy, addChain } from './state';
 import { bookingState } from './logic/chain';
-import { policyView, canJoin, canFreeze, canUnfreeze } from './logic/policy';
+import { policyView, canJoin, canFreeze, canUnfreeze, baseRequirement } from './logic/policy';
 import { canBackfillYesterday, backfillTs } from './logic/score';
 import { dayKey } from './logic/day';
 import { render } from './ui/render';
@@ -217,10 +217,29 @@ const policyHandlers = {
   onCollapse: async (id: string) => {
     if (!id) return;
     const v = policyView(S);
-    if (await openCollapseConfirm(S, v, id)) {
+    const r = await openCollapseConfirm(S, v, id);
+    if (!r) return;
+    const def = S.policies[id];
+    if (!def) return;
+    // v1.11 清级：定义恢复 lv.1 文本（有事件记录才自动恢复；无记录提示手动——宁可手动，不可错还原）
+    const clearLevel = (): void => {
+      const base = baseRequirement(S, id);
+      S = append(S, {
+        ts: Date.now(), type: 'policy_upgrade', policyId: id, newLevel: 1,
+        note: r.kind === 'fail' ? 'v1.11 失败清级回原始版' : 'v1.11 主动熄灭清级',
+        requirement: base ?? undefined, prevReq: S.policies[id]?.requirement,
+      });
+      S = base ? updatePolicy(S, id, { level: 1, requirement: base })
+               : updatePolicy(S, id, { level: 1 });
+      if (!base) alert('该国策的 lv.1 文本无事件记录（存量数据），等级已清回 lv.1，请在编辑定义中手动调整要求文本。');
+    };
+    if (r.kind === 'fail' && def.level > 1) {
+      clearLevel(); // v1.11：失败确定性清级 · 留在树上
+    } else {
+      if (def.level > 1) clearLevel(); // 结构性下树（或原始版失败前的清级）+ 熄灭
       S = append(S, { ts: Date.now(), type: 'policy_fail', policyId: id });
-      rerender();
     }
+    rerender();
   },
   onFreeze: async () => {
     const v = policyView(S);
@@ -249,11 +268,16 @@ const policyHandlers = {
       const patch = await openEditPolicyDialog(S, id);
       if (patch) { S = updatePolicy(S, id, patch); rerender(); }
     } else if (action === 'upgrade') {
-      const cur = S.policies[id]?.level ?? 1;
-      const up = await openUpgradeDialog(cur);
+      const def = S.policies[id];
+      if (!def) return;
+      const up = await openUpgradeDialog(def.level, def.requirement);
       if (up) {
-        S = append(S, { ts: Date.now(), type: 'policy_upgrade', policyId: id, newLevel: up.level, note: up.note });
-        S = updatePolicy(S, id, { level: up.level });
+        // 双快照入事件（等级→条款台账）；定义与等级原子更新
+        S = append(S, {
+          ts: Date.now(), type: 'policy_upgrade', policyId: id,
+          newLevel: def.level + 1, note: up.note, requirement: up.requirement, prevReq: def.requirement,
+        });
+        S = updatePolicy(S, id, { level: def.level + 1, requirement: up.requirement });
         rerender();
       }
     } else if (action === 'amend') {

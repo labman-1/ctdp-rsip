@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { policyView, collapseList, canJoin, isLeaf, backfillCandidates, unitLabel, canFreeze, canUnfreeze } from '../src/logic/policy';
+import { policyView, collapseList, canJoin, isLeaf, backfillCandidates, unitLabel, canFreeze, canUnfreeze, baseRequirement } from '../src/logic/policy';
 import type { AppState, ChainEvent } from '../src/types';
 
 let t = 1_700_000_000_000;
@@ -317,5 +317,38 @@ describe('封舱/启封（水密隔舱系统化）', () => {
     const v = policyView(s, d(5, 22));
     expect(v.nodes.P9.daysTotal).toBe(1);
     expect(v.nodes.P9.doneToday).toBe(true);
+  });
+});
+
+describe('baseRequirement 原始版文本追溯（v1.11 清级恢复依据）', () => {
+  const d = (day: number) => new Date(2026, 9, day, 10).getTime();
+  const mk = (events: ChainEvent[]): AppState => ({
+    version: 1,
+    chains: {},
+    policies: { P8: { name: '试验', kind: 'semi', requirement: 'r', level: 1, createdAt: 1 } },
+    events,
+  });
+
+  it('首个升级事件（lv.1→lv.2）带改前快照 → 该快照即原始版文本', () => {
+    const s = mk([
+      { ts: d(1), type: 'policy_join', policyId: 'P8', parent: null },
+      { ts: d(5), type: 'policy_upgrade', policyId: 'P8', newLevel: 2, note: '数日', requirement: '9h', prevReq: '10h' },
+      { ts: d(10), type: 'policy_upgrade', policyId: 'P8', newLevel: 3, note: '在岗21天', requirement: '8h', prevReq: '9h' },
+    ]);
+    expect(baseRequirement(s, 'P8')).toBe('10h');
+  });
+
+  it('存量升级事件无快照 → null（首事件非 lv.1→lv.2 或缺 prevReq 均不可信，清级提示手动）', () => {
+    const s = mk([
+      { ts: d(1), type: 'policy_join', policyId: 'P8', parent: null },
+      { ts: d(5), type: 'policy_upgrade', policyId: 'P8', newLevel: 2, note: '数日' },
+      { ts: d(10), type: 'policy_upgrade', policyId: 'P8', newLevel: 3, note: '在岗', requirement: '8h', prevReq: '9h' },
+    ]);
+    expect(baseRequirement(s, 'P8')).toBeNull();
+  });
+
+  it('无升级历史 → null', () => {
+    const s = mk([{ ts: d(1), type: 'policy_join', policyId: 'P8', parent: null }]);
+    expect(baseRequirement(s, 'P8')).toBeNull();
   });
 });
