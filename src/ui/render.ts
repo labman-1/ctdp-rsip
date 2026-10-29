@@ -59,7 +59,7 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
         ? `<div class="status active">预约到期 · 宽限中 — 立即触发</div>`
         : booking.phase === 'overdue'
           ? `<div class="status" style="color:var(--danger)">预约失约 · 待裁决</div>`
-          : `<div class="status">未触发${bookingChain && bookingChain.length > 0 ? ` · 预约链 #${bookingChain.length}` : ''}${chain.lastFailAt ? ` · 链于 ${fmtTime(chain.lastFailAt)} 清零重来` : ''}</div>`;
+          : `<div class="status">未触发${bookingChain && bookingChain.length > 0 ? ` · 预约链 #${bookingChain.length}` : ''}</div>`;
 
   // 按钮组：active 优先；其次预约状态机；最后 idle
   const actionsHtml = active
