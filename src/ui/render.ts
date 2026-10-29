@@ -45,7 +45,6 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
     .filter((i) => i >= 0);
   const chain = computeChain(s, currentId);
   if (!chain) { root.innerHTML = '<p>状态损坏</p>'; return; }
-  const multi = Object.keys(s.chains).length > 1;
   const booking = bookingState(s, currentId);
   const bookingChain = computeChain(s, currentId + '预约');
   const active = chain.activeSince !== null;
@@ -90,7 +89,7 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
 
   root.innerHTML = `
     <div class="topbar">
-      <button id="btn-chain" class="chain-switch" title="点击切换链">${multi ? '‹ ' : ''}${esc(chain.name)}${multi ? ' ›' : ''}</button>
+      <button id="btn-chain" class="chain-switch" title="点击选择链">${esc(chain.name)} <span style="opacity:.5">▾</span></button>
       <span class="topbar-right">
         <button id="btn-new-chain" class="mini" title="新建链（按行为类型分：算法/工程/锻炼…）">＋链</button>
       </span>

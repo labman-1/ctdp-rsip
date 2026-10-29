@@ -284,6 +284,21 @@ button.mini {
 }
 .empty { color: var(--dim); font-size: 13px; padding: 10px 2px; }
 
+/* ── 链选择器（点顶栏链名弹出）── */
+.pick-list { display: flex; flex-direction: column; gap: 2px; }
+.pick-row {
+  display: flex; align-items: center; gap: 10px;
+  background: none; border: none; color: var(--dim);
+  font-size: 14px; text-align: left; padding: 8px 6px;
+  border-bottom: 1px solid var(--line); cursor: pointer;
+}
+.pick-row:last-child { border-bottom: none; }
+.pick-cur { color: var(--fg); font-weight: 600; }
+.pick-id { opacity: .6; min-width: 24px; }
+.pick-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pick-len { font-size: 16px; color: var(--fg); font-weight: 600; min-width: 20px; text-align: right; }
+.pick-st { font-size: 11px; border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
+
 /* ── 表单与结算列表（弹窗内） ── */
 .form { display: grid; gap: 10px; }
 .form input, .form select, .form textarea {

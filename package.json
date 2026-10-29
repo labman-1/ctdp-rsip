@@ -2,7 +2,7 @@
   "name": "ctdp-rsip",
   "description": "CTDP 链式时延协议 + RSIP 递归稳态迭代协议的自控实践工具（单文件 PWA）",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.2.2",
   "type": "module",
   "license": "GPL-3.0-only",
   "scripts": {

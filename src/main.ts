@@ -8,7 +8,7 @@ import { canBackfillYesterday, backfillTs, todayScore } from './logic/score';
 import { dayKey } from './logic/day';
 import { render } from './ui/render';
 import { renderPolicy } from './ui/renderPolicy';
-import { openVerdictDialog, openScoreDialog, openScoreLogDialog, openImportConfirm, openNewChainDialog } from './ui/dialogs';
+import { openVerdictDialog, openScoreDialog, openScoreLogDialog, openImportConfirm, openNewChainDialog, openChainPicker } from './ui/dialogs';
 import {
   openNewPolicyDialog, openSettleDialog, openJoinDialog,
   openCollapseConfirm, openPolicyDetail, openUpgradeDialog, openAmendDialog, openEditPolicyDialog,
@@ -83,11 +83,15 @@ function importJson(): void {
 
 const handlers = {
   onSwitchChain: () => {
-    const ids = Object.keys(S.chains).filter((id) => !id.endsWith('预约'));
-    if (ids.length < 2) return;
-    currentId = ids[(ids.indexOf(currentId) + 1) % ids.length];
-    saveUiChain(currentId);
-    rerender();
+    // 链选择器（4 条链起盲轮转不再划算）：列表两击到达 + 全局可见；未选或选当前链则不动作
+    const picked = openChainPicker(S, currentId);
+    void picked.then((id) => {
+      if (id && id !== currentId && S.chains[id]) {
+        currentId = id;
+        saveUiChain(currentId);
+        rerender();
+      }
+    });
   },
   onNewChain: async () => {
     const name = await openNewChainDialog();
