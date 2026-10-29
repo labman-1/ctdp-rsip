@@ -8,7 +8,8 @@ import { canBackfillYesterday, backfillTs, todayScore } from './logic/score';
 import { dayKey } from './logic/day';
 import { render } from './ui/render';
 import { renderPolicy } from './ui/renderPolicy';
-import { openVerdictDialog, openScoreDialog, openScoreLogDialog, openImportConfirm, openNewChainDialog, openChainPicker } from './ui/dialogs';
+import { openVerdictDialog, openScoreDialog, openScoreLogDialog, openImportConfirm, openNewChainDialog } from './ui/dialogs';
+import { toggle as toggleChainDrop } from './ui/chainDrop';
 import {
   openNewPolicyDialog, openSettleDialog, openJoinDialog,
   openCollapseConfirm, openPolicyDetail, openUpgradeDialog, openAmendDialog, openEditPolicyDialog,
@@ -83,10 +84,11 @@ function importJson(): void {
 
 const handlers = {
   onSwitchChain: () => {
-    // 链选择器（4 条链起盲轮转不再划算）：列表两击到达 + 全局可见；未选或选当前链则不动作
-    const picked = openChainPicker(S, currentId);
-    void picked.then((id) => {
-      if (id && id !== currentId && S.chains[id]) {
+    // 原位下拉（v0.2.3）：光标原地滚轮/点击切换；点外部或 Esc 关闭
+    const anchor = document.getElementById('btn-chain');
+    if (!anchor) return;
+    toggleChainDrop(anchor, S, currentId, (id) => {
+      if (id !== currentId && S.chains[id]) {
         currentId = id;
         saveUiChain(currentId);
         rerender();

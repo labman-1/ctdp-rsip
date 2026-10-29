@@ -4,7 +4,6 @@
 
 import type { AppState, ChainEvent } from '../types';
 import { SCORE_ANCHORS, scoreHistory, backfillTs } from '../logic/score';
-import { computeChain, bookingState } from '../logic/chain';
 import { wireLifecycle } from './lifecycle';
 import { fmtTime } from './render';
 
@@ -142,44 +141,6 @@ export function openScoreLogDialog(s: AppState): Promise<void> {
 
     const finish = wireLifecycle<void>(dlg, resolve);
     dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => finish());
-    document.body.appendChild(dlg);
-    dlg.showModal();
-  });
-}
-
-/** 链选择器：点顶栏链名弹出（替代盲轮转——4 条链起恒定两击到达 + 全局可见）。
- *  行 = C 编号 + 链名 + 链长徽标 + 状态（● 专注中 / ◔ 预约中）；当前链高亮；预约链不进列表。
- *  resolve：选中的链 id，或 undefined（取消） */
-export function openChainPicker(s: AppState, currentId: string): Promise<string | undefined> {
-  return new Promise((resolve) => {
-    const ids = Object.keys(s.chains).filter((id) => !id.endsWith('预约'));
-    const rows = ids.map((id) => {
-      const v = computeChain(s, id);
-      const name = s.chains[id]?.name ?? id;
-      const st = v?.activeSince ? '<span class="pick-st">● 专注中</span>'
-        : (['booked', 'due'].includes(bookingState(s, id).phase) ? '<span class="pick-st">◔ 预约中</span>' : '');
-      const cur = id === currentId;
-      return `<button class="pick-row${cur ? ' pick-cur' : ''}" data-id="${id}">
-        <span class="pick-id">${id}</span>
-        <span class="pick-name">${esc(name)}</span>
-        <span class="pick-len">${v?.length ?? 0}</span>
-        ${st}
-      </button>`;
-    }).join('');
-    const dlg = el(`
-      <dialog>
-        <h3>切换链</h3>
-        <div class="hint">链按行为类型分，各自计数互不连坐。</div>
-        <div class="pick-list">${rows}</div>
-        <div class="dlg-actions">
-          <button class="cancel" data-act="cancel">取消</button>
-        </div>
-      </dialog>`);
-
-    const finish = wireLifecycle<string | undefined>(dlg, resolve);
-    dlg.querySelectorAll<HTMLButtonElement>('.pick-row').forEach((b) =>
-      b.addEventListener('click', () => finish(b.dataset.id)));
-    dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => finish(undefined));
     document.body.appendChild(dlg);
     dlg.showModal();
   });

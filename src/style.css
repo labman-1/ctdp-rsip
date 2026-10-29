@@ -299,6 +299,15 @@ button.mini {
 .pick-len { font-size: 16px; color: var(--fg); font-weight: 600; min-width: 20px; text-align: right; }
 .pick-st { font-size: 11px; border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
 
+/* 原位下拉容器（锚定顶栏，模态改下拉——高频导航不配打断式弹窗） */
+.chain-drop {
+  position: fixed; z-index: 50;
+  background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 4px; min-width: 280px; max-width: 90vw;
+  max-height: 300px; overflow-y: auto; color-scheme: dark;
+  display: flex; flex-direction: column;
+}
+
 /* ── 表单与结算列表（弹窗内） ── */
 .form { display: grid; gap: 10px; }
 .form input, .form select, .form textarea {
