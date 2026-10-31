@@ -85,6 +85,7 @@ export function openScoreDialog(opts: { canBackfill?: boolean; showWin?: boolean
             <option value="小赢">小赢</option>
             <option value="中赢">中赢</option>
             <option value="大赢">大赢</option>
+            <option value="赢麻了">赢麻了（顶档）</option>
           </select>
         </div>` : ''}
         <div class="dlg-actions">

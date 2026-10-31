@@ -310,7 +310,7 @@ button.mini {
 
 /* ── 表单与结算列表（弹窗内） ── */
 .form { display: grid; gap: 10px; }
-.form input, .form select, .form textarea {
+.form input, .form select, .form textarea, .settle-bf input, .settle-bf select {
   background: #101010;
   border: 1px solid var(--line);
   border-radius: 8px;
