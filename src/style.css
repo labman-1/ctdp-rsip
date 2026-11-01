@@ -299,9 +299,18 @@ button.mini {
 .pick-len { font-size: 16px; color: var(--fg); font-weight: 600; min-width: 20px; text-align: right; }
 .pick-st { font-size: 11px; border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
 
-/* ── 树形渲染：森林分区（根）+ 嵌套容器树线（父子=连线，兄弟=并列）── */
+/* ── 树形渲染：森林分区（根）+ 嵌套容器树线（竖线=容器左边框，横肘=子卡片::before）── */
 .tree-root { margin: 12px 0; }
 .tree-branch { margin-left: 10px; padding-left: 16px; border-left: 1px solid var(--line); }
+.tree-branch > .policy-card { position: relative; }
+.tree-branch > .policy-card::before {
+  content: '';
+  position: absolute;
+  left: -17px;              /* 从容器竖线跨过 padding 接到卡片左缘 */
+  top: 22px;                /* 对齐卡片的名称行 */
+  width: 16px; height: 1px;
+  background: var(--line);
+}
 
 /* 原位下拉容器（锚定顶栏，模态改下拉——高频导航不配打断式弹窗） */
 .chain-drop {
