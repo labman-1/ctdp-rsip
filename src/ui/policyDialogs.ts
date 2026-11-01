@@ -2,7 +2,7 @@
 // 统一走 wireLifecycle（Esc 兜底，见 dialogs.ts）。
 
 import type { AppState, PolicyDef, PolicyKind } from '../types';
-import { policyView, collapseList, isLeaf, backfillCandidates, unitLabel, type PolicyView } from '../logic/policy';
+import { policyView, collapseList, backfillCandidates, unitLabel, type PolicyView } from '../logic/policy';
 import { wireLifecycle } from './lifecycle';
 
 function el(html: string): HTMLDialogElement {
@@ -128,20 +128,21 @@ export function openSettleDialog(s: AppState): Promise<{ today: string[]; yester
   });
 }
 
-/** 上树选父：只能挂当前叶子（末梢原则）或独立根。resolve：parent id 或 null（独立根） */
+/** 上树选父：任意在树节点均可（分叉合法，父倒子灭连坐照旧）或独立根；新上节点自然为末梢（无子）。
+ *  resolve：parent id 或 null（独立根） */
 export function openJoinDialog(s: AppState, v: PolicyView, id: string): Promise<string | null | undefined> {
   return new Promise((resolve) => {
-    // 候选父 = 全部活树叶子 + "独立根"。注意 id 自身不在树上（canJoin 已保证）
-    const leaves = Object.values(v.nodes).filter((n) => n.alive && n.id !== id && isLeaf(v, n.id));
+    // 候选父 = 全部在树节点（≠自身）。注意 id 自身不在树上（canJoin 已保证）
+    const cand = Object.values(v.nodes).filter((n) => n.alive && n.id !== id);
     const options = [
       `<label class="settle-row"><input type="radio" name="parent" value="" checked /><span>独立根</span></label>`,
-      ...leaves.map((n) =>
-        `<label class="settle-row"><input type="radio" name="parent" value="${n.id}" /><span>挂在 ${esc2(s.policies[n.id]?.name ?? n.id)} 之下（末梢）</span></label>`),
+      ...cand.map((n) =>
+        `<label class="settle-row"><input type="radio" name="parent" value="${n.id}" /><span>挂在 ${esc2(s.policies[n.id]?.name ?? n.id)} 之下</span></label>`),
     ].join('');
     const dlg = el(`
       <dialog>
         <h3>上树 · ${esc2(s.policies[id]?.name ?? id)}</h3>
-        <div class="hint">末梢原则：只能挂当前叶子之下或独立根（重上不从原位，从底层重来）。</div>
+        <div class="hint">可挂任意在树节点之下或独立根；新上节点自然为末梢（无子）。父倒子灭，子孙连坐照旧。</div>
         <div class="settle-list">${options}</div>
         <div class="dlg-actions">
           <button data-act="ok">上树</button>

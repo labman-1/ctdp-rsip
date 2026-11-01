@@ -1,5 +1,4 @@
-// 国策视图：缩进树 + 手牌库 + 底部 tab。
-// 树的力学（父子/连坐/末梢）用缩进与左边线表达，不做画布。
+// 国策视图：森林分区（每个独立根一节）+ 嵌套容器树线（父子=连线，兄弟=并列）+ 手牌库 + 底部 tab。
 
 import type { AppState } from '../types';
 import { policyView, canJoin, canUnfreeze, unitLabel, type PolicyView } from '../logic/policy';
@@ -21,13 +20,13 @@ function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function cardRow(s: AppState, v: PolicyView, id: string, depth: number): string {
+function cardRow(s: AppState, v: PolicyView, id: string): string {
   const def = s.policies[id];
   const n = v.nodes[id];
   if (!def || !n) return '';
   const joinable = canJoin(v, id);
   return `
-    <div class="policy-card${n.alive ? '' : ' inhand'}" style="margin-left:${depth * 18}px">
+    <div class="policy-card${n.alive ? '' : ' inhand'}">
       <div class="policy-main">
         <span class="policy-name">${esc(def.name)}</span>
         <span class="policy-tags">
@@ -55,14 +54,16 @@ function cardRow(s: AppState, v: PolicyView, id: string, depth: number): string 
     </div>`;
 }
 
+/** 子树：节点卡片 + 子树容器（嵌套容器树线——连线随子树连续） */
+function subtreeOf(s: AppState, v: PolicyView, id: string): string {
+  const kids = v.nodes[id]?.children ?? [];
+  const inner = kids.map((c) => subtreeOf(s, v, c)).join('');
+  return cardRow(s, v, id) + (kids.length ? `<div class="tree-branch">${inner}</div>` : '');
+}
+
+/** 森林：每个独立根一节 */
 function treeOf(s: AppState, v: PolicyView): string {
-  const out: string[] = [];
-  const walk = (id: string, depth: number) => {
-    out.push(cardRow(s, v, id, depth));
-    for (const c of v.nodes[id]?.children ?? []) walk(c, depth + 1);
-  };
-  for (const r of v.roots) walk(r, 0);
-  return out.join('');
+  return v.roots.map((r) => `<div class="tree-root">${subtreeOf(s, v, r)}</div>`).join('');
 }
 
 export function renderPolicy(root: HTMLElement, s: AppState, h: PolicyHandlers, tab: 'chain' | 'policy'): void {
@@ -106,13 +107,13 @@ export function renderPolicy(root: HTMLElement, s: AppState, h: PolicyHandlers, 
     ${fzBlock}
 
     <div class="policy-section">
-      <div class="section-title">在树（${v.roots.length ? countAlive(v) : 0}）</div>
+      <div class="section-title">在树（${countAlive(v)} 节点 · ${v.roots.length} 根）</div>
       ${v.roots.length ? treeOf(s, v) : '<div class="empty">（树为空 — 国策先入手牌，当日执行成功后方可上树）</div>'}
     </div>
 
     <div class="policy-section">
       <div class="section-title">手牌（${v.hand.length}）</div>
-      ${v.hand.length ? v.hand.map((id) => cardRow(s, v, id, 0)).join('') : '<div class="empty">（无手牌）</div>'}
+      ${v.hand.length ? v.hand.map((id) => cardRow(s, v, id)).join('') : '<div class="empty">（无手牌）</div>'}
     </div>
 
     <div class="footer">
