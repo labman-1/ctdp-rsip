@@ -195,8 +195,9 @@ export function openCollapseConfirm(s: AppState, v: PolicyView, id: string): Pro
   });
 }
 
-/** 详情弹窗。resolve：用户请求的后续动作（编辑定义/升级/加修正），由 main 继续开对应弹窗 */
-export function openPolicyDetail(s: AppState, id: string): Promise<'edit' | 'upgrade' | 'amend' | null> {
+/** 详情弹窗＝该国策的唯一驾驶舱：陈列信息 + 全部动作（编辑/升级/修正 + 按状态显示上树或熄灭）。
+ *  resolve：用户请求的后续动作，由 main 继续处理 */
+export function openPolicyDetail(s: AppState, id: string): Promise<'edit' | 'upgrade' | 'amend' | 'join' | 'collapse' | null> {
   return new Promise((resolve) => {
     const def = s.policies[id];
     if (!def) return resolve(null);
@@ -211,6 +212,10 @@ export function openPolicyDetail(s: AppState, id: string): Promise<'edit' | 'upg
       .join('');
     const kindLabel: Record<string, string> = { passive: '被动型', semi: '半被动型', active: '主动型' };
 
+    const lifeAction = !n?.alive
+      ? '<button data-act="join">上树</button>'
+      : n.frozenSince === null ? '<button class="danger" data-act="collapse">熄灭</button>' : '';
+
     const dlg = el(`
       <dialog>
         <h3>${esc2(def.name)} · lv.${def.level}</h3>
@@ -223,14 +228,17 @@ export function openPolicyDetail(s: AppState, id: string): Promise<'edit' | 'upg
           <button data-act="edit">编辑定义</button>
           <button data-act="upgrade">升级 lv</button>
           <button data-act="amend">追加修正条款</button>
+          ${lifeAction}
           <button class="cancel" data-act="cancel">关闭</button>
         </div>
       </dialog>`);
 
-    const finish = wireLifecycle<'edit' | 'upgrade' | 'amend' | null>(dlg, resolve);
+    const finish = wireLifecycle<'edit' | 'upgrade' | 'amend' | 'join' | 'collapse' | null>(dlg, resolve);
     dlg.querySelector('[data-act="edit"]')?.addEventListener('click', () => finish('edit'));
     dlg.querySelector('[data-act="upgrade"]')?.addEventListener('click', () => finish('upgrade'));
     dlg.querySelector('[data-act="amend"]')?.addEventListener('click', () => finish('amend'));
+    dlg.querySelector('[data-act="join"]')?.addEventListener('click', () => finish('join'));
+    dlg.querySelector('[data-act="collapse"]')?.addEventListener('click', () => finish('collapse'));
     dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => finish(null));
     show(dlg);
   });

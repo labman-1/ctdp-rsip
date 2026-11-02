@@ -284,6 +284,10 @@ const policyHandlers = {
     if (action === 'edit') {
       const patch = await openEditPolicyDialog(S, id);
       if (patch) { S = updatePolicy(S, id, patch); rerender(); }
+    } else if (action === 'join') {
+      void policyHandlers.onJoin(id);
+    } else if (action === 'collapse') {
+      void policyHandlers.onCollapse(id);
     } else if (action === 'upgrade') {
       const def = S.policies[id];
       if (!def) return;

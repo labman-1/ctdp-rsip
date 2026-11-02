@@ -256,6 +256,7 @@ dialog .cancel { border: none; color: var(--dim); min-height: 36px; font-size: 1
   padding: 10px 12px;
   margin: 8px 0;
   position: relative;
+  cursor: pointer; /* 整卡可点进详情——卡片为纯陈列，动作全在详情弹窗 */
 }
 .policy-card.inhand { border-style: dashed; opacity: 0.85; }
 .policy-main { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
@@ -272,8 +273,17 @@ dialog .cancel { border: none; color: var(--dim); min-height: 36px; font-size: 1
 .tag.todo { color: var(--danger); border-color: #3a2626; }
 .tag.kind-passive { color: #7a9aa8; border-color: #2c353a; }
 .policy-brief { color: var(--dim); font-size: 12px; margin-top: 4px; }
-/* 操作排在文档流内右对齐（原绝对定位右上角——按钮增至三个后与换行的标签行重叠，2026-10-28 修） */
-.policy-ops { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; margin-top: 6px; }
+
+/* ── 状态条：每晚巡逻的全部 UI（一行总账）── */
+.status-strip {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 12px 2px; border-bottom: 1px solid var(--line);
+}
+.stat { font-size: 12px; color: var(--dim); white-space: nowrap; }
+.stat b { font-size: 15px; color: var(--fg); font-weight: 600; }
+.stat-click { background: none; border: none; font-family: inherit; padding: 0; cursor: pointer; }
+.stat-done b { color: #7aa87a; }        /* 7/7 亮起——每晚的终点信号 */
+.stat-warn b { color: var(--danger); }  /* 舱内逾期警示 */
 .fz-block { border: 1px dashed var(--line); border-radius: var(--radius); padding: 8px 12px; margin: 12px 0; }
 .fz-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 0; font-size: 13px; }
 button.mini {
@@ -299,15 +309,16 @@ button.mini {
 .pick-len { font-size: 16px; color: var(--fg); font-weight: 600; min-width: 20px; text-align: right; }
 .pick-st { font-size: 11px; border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
 
-/* ── 树形渲染：森林分区（根）+ 嵌套容器树线（竖线=容器左边框，横肘=子卡片::before）── */
-.tree-root { margin: 12px 0; }
+/* ── 树形渲染：森林组框（框=连坐域）+ 框内缩进辅线 ── */
+.tree-root { margin: 12px 0; border: 1px solid #333; border-radius: var(--radius); padding: 10px; background: #141414; }
 .tree-branch { margin-left: 10px; padding-left: 16px; border-left: 1px solid var(--line); }
-.tree-branch > .policy-card { position: relative; }
+.tree-branch > .policy-card { position: relative; border-color: transparent; background: none; }
+.tree-branch > .policy-card:hover { border-color: var(--line); }
 .tree-branch > .policy-card::before {
   content: '';
   position: absolute;
-  left: -17px;              /* 从容器竖线跨过 padding 接到卡片左缘 */
-  top: 22px;                /* 对齐卡片的名称行 */
+  left: -17px;
+  top: 22px;
   width: 16px; height: 1px;
   background: var(--line);
 }
