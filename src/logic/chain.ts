@@ -90,8 +90,10 @@ export interface BookingView {
 }
 
 /**
- * 主链的预约状态。兑现 = 窗口内出现主链 trigger，或对预约链做出裁决（fail/verdict）。
+ * 主链的预约状态。兑现 = 窗口内（含 5 分钟宽限）出现主链 trigger，或对预约链做出裁决（fail/verdict）。
  * 触发主链时由 UI 层同步追加预约链的 done 事件（见 main.ts 的双事件提交）。
+ * 注：结算判定必须含宽限期（协议"兑现=窗口内（含宽限）点击触发"）——2026-11-07 修复
+ *     曾漏加 GRACE 导致 due 阶段触发后相位卡死、⚠ 标题滞留、被迫对已兑现预约走失约裁决。
  */
 export function bookingState(s: AppState, mainChainId: string, now = Date.now()): BookingView {
   const bId = mainChainId + '预约';
@@ -102,8 +104,8 @@ export function bookingState(s: AppState, mainChainId: string, now = Date.now())
       lastBooking = e.ts;
       settled = false;
     } else if (lastBooking !== null && !settled) {
-      if (e.chain === mainChainId && e.type === 'trigger' && e.ts <= lastBooking + BOOKING_WINDOW_MS) {
-        settled = true; // 预约兑现
+      if (e.chain === mainChainId && e.type === 'trigger' && e.ts <= lastBooking + BOOKING_WINDOW_MS + BOOKING_GRACE_MS) {
+        settled = true; // 预约兑现（窗口+宽限内）
       } else if (e.chain === bId && (e.type === 'fail' || e.type === 'verdict')) {
         settled = true; // 已裁决（失约判失败 / 判允许）
       }

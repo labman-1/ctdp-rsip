@@ -65,6 +65,17 @@ describe('bookingState 预约状态机', () => {
     expect(bookingState(s, 'C1', t).phase).toBe('none');
   });
 
+  it('宽限期内（due 阶段）触发主链 = 兑现 → none（协议"含宽限"；2026-11-07 修复回归）', () => {
+    // 曾因结算判定漏加 GRACE：due 阶段触发后相位卡死 → ⚠ 标题滞留、宽限一过被迫对已兑现预约走失约裁决
+    const s = state(ev('booking', 'C1预约'));
+    const bookingTs = s.events[0].ts;
+    const patched: AppState = {
+      ...s,
+      events: [...s.events, { ts: bookingTs + BOOKING_WINDOW_MS + 60_000, type: 'trigger', chain: 'C1' }],
+    };
+    expect(bookingState(patched, 'C1', bookingTs + BOOKING_WINDOW_MS + 120_000).phase).toBe('none');
+  });
+
   it('窗口外触发主链不算兑现（宽限后触发前已 overdue，须裁决）', () => {
     const s = state(ev('booking', 'C1预约'), ev('trigger', 'C1'));
     const lateTs = s.events[0].ts + BOOKING_WINDOW_MS + BOOKING_GRACE_MS + 60_000;
