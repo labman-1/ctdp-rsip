@@ -10,6 +10,7 @@ export interface Handlers {
   onSwitchTab(tab: 'chain' | 'policy'): void;
   onSwitchChain(): void;
   onNewChain(): void;
+  onRenameChain(): void;
   onTrigger(): void;
   onBooking(): void;
   onBookingVerdict(): void;
@@ -91,6 +92,7 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
     <div class="topbar">
       <button id="btn-chain" class="chain-switch" title="点击选择链">${esc(chain.name)} <span style="opacity:.5">▾</span></button>
       <span class="topbar-right">
+        <button id="btn-rename-chain" class="mini" title="重命名当前链">✎</button>
         <button id="btn-new-chain" class="mini" title="新建链（按行为类型分：算法/工程/锻炼…）">＋链</button>
       </span>
     </div>
@@ -157,6 +159,7 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
 
   root.querySelector('#btn-chain')?.addEventListener('click', h.onSwitchChain);
   root.querySelector('#btn-new-chain')?.addEventListener('click', h.onNewChain);
+  root.querySelector('#btn-rename-chain')?.addEventListener('click', h.onRenameChain);
   root.querySelector('#btn-trigger')?.addEventListener('click', h.onTrigger);
   root.querySelector('#btn-booking')?.addEventListener('click', h.onBooking);
   root.querySelector('#btn-booking-verdict')?.addEventListener('click', h.onBookingVerdict);

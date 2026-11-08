@@ -62,6 +62,21 @@ export function addChain(s: AppState, name: string): { state: AppState; id: stri
   return { state: next, id };
 }
 
+/** 链改名：显示名而已——id 是稳定键，事件流与派生视图零影响。
+ *  预约链名若恰为派生式"旧名 · 预约链"则联动同步（防成对名漂移）；被手动改过则不动。 */
+export function updateChainName(s: AppState, id: string, name: string): AppState {
+  const c = s.chains[id];
+  if (!c || !name || name === c.name) return s;
+  const chains: AppState['chains'] = { ...s.chains, [id]: { ...c, name } };
+  const bId = id + '预约';
+  if (s.chains[bId]?.name === `${c.name} · 预约链`) {
+    chains[bId] = { ...s.chains[bId], name: `${name} · 预约链` };
+  }
+  const next: AppState = { ...s, chains };
+  save(next);
+  return next;
+}
+
 function defaultState(): AppState {
   return ensureDerivedChains({
     version: 1,

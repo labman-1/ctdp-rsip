@@ -147,6 +147,32 @@ export function openScoreLogDialog(s: AppState): Promise<void> {
   });
 }
 
+/** 链改名（当前链；入口在链页右上角管理区 ✎——管理动作不放导航层）。resolve：新名或 null */
+export function openRenameChainDialog(current: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const dlg = el(`
+      <dialog>
+        <h3>重命名链</h3>
+        <div class="hint">仅改显示名——链 id（C1/C2…）是稳定键，历史事件与链长不受影响。预约链名自动同步。</div>
+        <div class="form">
+          <input id="rn-name" value="${esc(current)}" maxlength="30" />
+        </div>
+        <div class="dlg-actions">
+          <button data-act="ok">记下</button>
+          <button class="cancel" data-act="cancel">取消</button>
+        </div>
+      </dialog>`);
+
+    const finish = wireLifecycle<string | null>(dlg, resolve);
+    dlg.querySelector('[data-act="ok"]')?.addEventListener('click', () => {
+      const name = (dlg.querySelector('#rn-name') as HTMLInputElement).value.trim();
+      if (name) finish(name);
+    });
+    dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => finish(null));
+    show(dlg);
+  });
+}
+
 /** 新建链（命名弹窗）。resolve：链名或 null */export function openNewChainDialog(): Promise<string | null> {
   return new Promise((resolve) => {
     const dlg = el(`

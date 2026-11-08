@@ -1,14 +1,14 @@
 // 入口（组合根）：加载状态 → 绑定事件 → 全量渲染 → 启动驱动器与 PWA。
 // commit() 是唯一的状态变更路径（append 事件 → 落盘 → 重渲染）。
 
-import { load, append, replaceWith, loadUiChain, saveUiChain, addPolicy, updatePolicy, addChain } from './state';
+import { load, append, replaceWith, loadUiChain, saveUiChain, addPolicy, updatePolicy, addChain, updateChainName } from './state';
 import { bookingState } from './logic/chain';
 import { policyView, canJoin, canFreeze, canUnfreeze, baseRequirement } from './logic/policy';
 import { canBackfillYesterday, backfillTs, todayScore } from './logic/score';
 import { dayKey } from './logic/day';
 import { render } from './ui/render';
 import { renderPolicy } from './ui/renderPolicy';
-import { openVerdictDialog, openScoreDialog, openScoreLogDialog, openImportConfirm, openNewChainDialog } from './ui/dialogs';
+import { openVerdictDialog, openScoreDialog, openScoreLogDialog, openImportConfirm, openNewChainDialog, openRenameChainDialog } from './ui/dialogs';
 import { toggle as toggleChainDrop } from './ui/chainDrop';
 import {
   openNewPolicyDialog, openSettleDialog, openJoinDialog,
@@ -103,6 +103,16 @@ const handlers = {
     currentId = r.id; // 建完即切换到新链
     saveUiChain(currentId);
     rerender();
+  },
+  onRenameChain: async () => {
+    // 改的是当前链（页面即上下文）；改名走 state 层，事件流零影响；预约链名联动见 updateChainName
+    const cur = S.chains[currentId];
+    if (!cur) return;
+    const name = await openRenameChainDialog(cur.name);
+    if (name && name !== cur.name) {
+      S = updateChainName(S, currentId, name);
+      rerender();
+    }
   },
   onTrigger: () => {
     // 预约兑现：窗口内触发主链时，同批提交预约链的 done（原子化双事件）
