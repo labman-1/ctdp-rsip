@@ -169,7 +169,8 @@ export function openRenameChainDialog(current: string): Promise<string | null> {
       if (name) finish(name);
     });
     dlg.querySelector('[data-act="cancel"]')?.addEventListener('click', () => finish(null));
-    show(dlg);
+    document.body.appendChild(dlg);
+    dlg.showModal();
   });
 }
 
