@@ -15,8 +15,8 @@
 
 import type { AppState, ChainView, EventType } from '../types';
 
-/** 预约链参数：正式窗口 15 分钟（协议），宽限 5 分钟（缓冲实现细节） */
-export const BOOKING_WINDOW_MS = 15 * 60 * 1000;
+/** 预约链参数：正式窗口 10 分钟（2026-11-09 用户裁决，原 15 分钟——宽限 5 分钟已含兜底，窗口缩短提密度），宽限 5 分钟（缓冲实现细节） */
+export const BOOKING_WINDOW_MS = 10 * 60 * 1000;
 export const BOOKING_GRACE_MS = 5 * 60 * 1000;
 
 /** 预约链（id 形如 "C1预约"）的事件归一化：booking 在预约链上视同 trigger */
