@@ -49,7 +49,7 @@ export function render(root: HTMLElement, s: AppState, h: Handlers, currentId: s
   const booking = bookingState(s, currentId);
   const bookingChain = computeChain(s, currentId + '预约');
   const active = chain.activeSince !== null;
-  const mins = active ? Math.max(0, Math.round((Date.now() - (chain.activeSince as number)) / 60000)) : 0;
+  const mins = active ? Math.max(0, Math.floor((Date.now() - (chain.activeSince as number)) / 60000)) : 0;
 
   const statusHtml = active
     ? `<div class="status active">专注中 · 已 <span id="elapsed">${mins}</span> 分 — 手机离手</div>`
